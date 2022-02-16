@@ -50,7 +50,7 @@ static thread_local std::map<const void*, uint32_t> g_shaderCodePointerToHash;
 static bool g_osdInfoVisible = false;
 
 
-static bool on_create_pipeline(device *device, pipeline_layout, uint32_t subobject_count, const pipeline_subobject *subobjects)
+static bool onCreatePipeline(device *device, pipeline_layout, uint32_t subobject_count, const pipeline_subobject *subobjects)
 {
 	// Go through all shader stages that are in this pipeline and calculate their hashes, then store that based on the code pointer.
 	// we have to do that now, as after the shader has been passed to the driver the code is locked.
@@ -77,7 +77,7 @@ static bool on_create_pipeline(device *device, pipeline_layout, uint32_t subobje
 }
 
 
-static void on_after_create_pipeline(device *device, pipeline_layout, uint32_t subobject_count, const pipeline_subobject *subobjects, pipeline shaderHandle)
+static void onInitPipeline(device *device, pipeline_layout, uint32_t subobject_count, const pipeline_subobject *subobjects, pipeline shaderHandle)
 {
 	// shader has been created, we will now create a hash and store it with the handle we got.
 	for (uint32_t i = 0; i < subobject_count; ++i)
@@ -103,7 +103,7 @@ static void on_after_create_pipeline(device *device, pipeline_layout, uint32_t s
 }
 
 
-static void displayOSDInfo(reshade::api::effect_runtime *runtime)
+static void onReshadeOverlay(reshade::api::effect_runtime *runtime)
 {
 	if(g_osdInfoVisible)
 	{
@@ -139,9 +139,9 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
 		{
 			return FALSE;
 		}
-		reshade::register_event<reshade::addon_event::create_pipeline>(on_create_pipeline);
-		reshade::register_event<reshade::addon_event::init_pipeline>(on_after_create_pipeline);
-		reshade::register_overlay("Shader Toggler", &displayOSDInfo);
+		reshade::register_event<reshade::addon_event::create_pipeline>(onCreatePipeline);
+		reshade::register_event<reshade::addon_event::init_pipeline>(onInitPipeline);
+		reshade::register_event<reshade::addon_event::reshade_overlay>(onReshadeOverlay);
 		reshade::register_overlay(nullptr, &displaySettings);
 		break;
 	case DLL_PROCESS_DETACH:

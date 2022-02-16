@@ -10,7 +10,7 @@
 #include <charconv>
 #include <Windows.h>
 
-#define RESHADE_API_VERSION 1
+#define RESHADE_API_VERSION 2
 
  // Use the kernel32 variant of module enumeration functions so it can be safely called from 'DllMain'
 extern "C" BOOL WINAPI K32EnumProcessModules(HANDLE hProcess, HMODULE *lphModule, DWORD cb, LPDWORD lpcbNeeded);
@@ -198,9 +198,9 @@ namespace reshade
 
 	/// <summary>
 	/// Registers an overlay with ReShade.
-	/// <para>The callback function is then called whenever the ReShade overlay is visible and allows adding Dear ImGui widgets for user interaction.</para>
+	/// <para>The callback function is then called when the overlay is visible and allows adding Dear ImGui widgets for user interaction.</para>
 	/// </summary>
-	/// <param name="title">A null-terminated title string, or <see langword="nullptr"/> to register a settings overlay for this add-on.</param>
+	/// <param name="title">Null-terminated title string, or <see langword="nullptr"/> to register a settings overlay for this add-on.</param>
 	/// <param name="callback">Pointer to the callback function.</param>
 	inline void register_overlay(const char *title, void(*callback)(reshade::api::effect_runtime *runtime))
 	{
@@ -211,7 +211,7 @@ namespace reshade
 	/// <summary>
 	/// Unregisters an overlay that was previously registered via <see cref="register_overlay"/>.
 	/// </summary>
-	/// <param name="title">A null-terminated title string.</param>
+	/// <param name="title">Null-terminated title string.</param>
 	/// <param name="callback">Pointer to the callback function.</param>
 	inline void unregister_overlay(const char *title, void(*callback)(reshade::api::effect_runtime *runtime))
 	{
