@@ -114,12 +114,38 @@ static void onReshadeOverlay(reshade::api::effect_runtime *runtime)
 			ImGui::End();
 			return;
 		}
-		ImVec4 col = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-		ImGui::PushStyleColor(ImGuiCol_Text, col);
-		ImGui::Text("# of vertex shaders gathered: %d", g_vertexShaderManager.getCount());
-		ImGui::Text("# of pixel shaders gathered: %d", g_pixelShaderManager.getCount());
+		const ImVec4 foregroundColor = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+		ImGui::PushStyleColor(ImGuiCol_Text, foregroundColor);
+		ImGui::Text("# of vertex shaders gathered: %d. In hunting mode: %s", g_vertexShaderManager.getCount(), g_vertexShaderManager.isInHuntingMode() ? "true" : "false");
+		ImGui::Text("# of pixel shaders gathered: %d. In hunting mode: %s", g_pixelShaderManager.getCount(), g_vertexShaderManager.isInHuntingMode() ? "true" : "false");
+		if(g_pixelShaderManager.isInHuntingMode())
+		{
+			ImGui::Text("Current selected shader: %d / %d", g_pixelShaderManager.getActiveHuntedShaderIndex(), g_pixelShaderManager.getCount());
+		}
 		ImGui::PopStyleColor();
 		ImGui::End();
+	}
+}
+
+
+static void onReshadePresent(effect_runtime* runtime)
+{
+	// handle key presses. For now hardcoded, pixel shaders only
+	// Keys:
+	// END: toggle hunting mode
+	// PageUp: next shader
+	// PageDown: previous shader
+	if(runtime->is_key_pressed(VK_END))
+	{
+		g_pixelShaderManager.toggleHuntingMode();
+	}
+	if(runtime->is_key_pressed(VK_NEXT))
+	{
+		g_pixelShaderManager.huntNextShader();
+	}
+	if(runtime->is_key_pressed(VK_PRIOR))
+	{
+		g_pixelShaderManager.huntPreviousShader();
 	}
 }
 
@@ -142,9 +168,15 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
 		reshade::register_event<reshade::addon_event::create_pipeline>(onCreatePipeline);
 		reshade::register_event<reshade::addon_event::init_pipeline>(onInitPipeline);
 		reshade::register_event<reshade::addon_event::reshade_overlay>(onReshadeOverlay);
+		reshade::register_event<reshade::addon_event::reshade_present>(onReshadePresent);
 		reshade::register_overlay(nullptr, &displaySettings);
 		break;
 	case DLL_PROCESS_DETACH:
+		reshade::unregister_event<reshade::addon_event::reshade_present>(onReshadePresent);
+		reshade::unregister_event<reshade::addon_event::create_pipeline>(onCreatePipeline);
+		reshade::unregister_event<reshade::addon_event::init_pipeline>(onInitPipeline);
+		reshade::unregister_event<reshade::addon_event::reshade_overlay>(onReshadeOverlay);
+		reshade::unregister_overlay(nullptr, &displaySettings);
 		reshade::unregister_addon(hModule);
 		break;
 	}

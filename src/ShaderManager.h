@@ -46,12 +46,24 @@ namespace ShaderToggler
 		void addHashHandlePair(uint32_t shaderHash, reshade::api::pipeline handle);
 		reshade::api::pipeline getHandle(uint32_t shaderHash);
 		uint32_t getShaderHash(reshade::api::pipeline handle);
+		void toggleHuntingMode();
+		void setActiveHuntedShaderHandle();
+		void huntNextShader();
+		void huntPreviousShader();
 
 		uint32_t getCount() {return _shaderHashToHandle.size();}
+		bool isInHuntingMode() { return _isInHuntingMode;}
+		reshade::api::pipeline getActiveHuntedShaderHandle() { return _activeHuntedShaderHandle;}
+		int getActiveHuntedShaderIndex() { return _activeHuntedShaderIndex; }
+
 
 	private:
 		std::map<uint32_t, reshade::api::pipeline> _shaderHashToHandle;
 		std::map<reshade::api::pipeline, uint32_t> _handleToShaderHash;
+
+		bool _isInHuntingMode = false;
+		int _activeHuntedShaderIndex = -1;
+		reshade::api::pipeline _activeHuntedShaderHandle;
 	};
 }
 

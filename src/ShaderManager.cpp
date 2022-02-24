@@ -66,4 +66,79 @@ namespace ShaderToggler
 		}
 		return _handleToShaderHash.at(handle);
 	}
+
+
+	void ShaderManager::toggleHuntingMode()
+	{
+		if(_isInHuntingMode)
+		{
+			_isInHuntingMode = false;
+			_activeHuntedShaderIndex = -1;
+		}
+		else
+		{
+			_isInHuntingMode = true;
+			if(_handleToShaderHash.size() > 0)
+			{
+				_activeHuntedShaderIndex = 1;
+				_activeHuntedShaderHandle = _handleToShaderHash.begin()->first;
+			}
+			else
+			{
+				_activeHuntedShaderIndex = -1;
+			}
+		}
+	}
+
+
+	void ShaderManager::setActiveHuntedShaderHandle()
+	{
+		auto it = _handleToShaderHash.begin();
+		std::advance(it, _activeHuntedShaderIndex);
+		_activeHuntedShaderHandle = it->first;
+	}
+
+
+	void ShaderManager::huntNextShader()
+	{
+		if(!_isInHuntingMode)
+		{
+			return;
+		}
+		if(_handleToShaderHash.size()<=0)
+		{
+			return;
+		}
+		if(_activeHuntedShaderIndex<_handleToShaderHash.size()-1)
+		{
+			_activeHuntedShaderIndex++;
+		}
+		else
+		{
+			_activeHuntedShaderIndex = 0;
+		}
+		setActiveHuntedShaderHandle();
+	}
+
+
+	void ShaderManager::huntPreviousShader()
+	{
+		if(!_isInHuntingMode)
+		{
+			return;
+		}
+		if(_handleToShaderHash.size()<=0)
+		{
+			return;
+		}
+		if(_activeHuntedShaderIndex<=0)
+		{
+			_activeHuntedShaderIndex = _handleToShaderHash.size()-1;
+		}
+		else
+		{
+			--_activeHuntedShaderIndex;
+		}
+		setActiveHuntedShaderHandle();
+	}
 }
