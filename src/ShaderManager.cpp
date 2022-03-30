@@ -154,23 +154,8 @@ namespace ShaderToggler
 	}
 
 
-	bool ShaderManager::isBlockedShader(command_list* commandList)
+	bool ShaderManager::isBlockedShader(uint64_t handle)
 	{
-		if(_boundShaderHandlePerCommandList.count(commandList)!=1)
-		{
-			return false;
-		}
-		// for now just check if it's the hunted shader
-		return _activeHuntedShaderHandle == _boundShaderHandlePerCommandList.at(commandList);
-	}
-
-
-	void ShaderManager::setBoundShaderHandlePerCommandList(reshade::api::command_list* commandList, uint64_t handle)
-	{
-		if(nullptr==commandList || handle==0)
-		{
-			return;
-		}
-		_boundShaderHandlePerCommandList[commandList] = handle;
+		return _activeHuntedShaderHandle == handle;
 	}
 }

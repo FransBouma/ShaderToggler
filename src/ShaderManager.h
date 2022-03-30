@@ -52,19 +52,16 @@ namespace ShaderToggler
 		void setActiveHuntedShaderHandle();
 		void huntNextShader();
 		void huntPreviousShader();
-		bool isBlockedShader(reshade::api::command_list* commandList);
-		void setBoundShaderHandlePerCommandList(reshade::api::command_list* commandList, uint64_t handle);
+		bool isBlockedShader(uint64_t handle);
 
-		uint32_t getCount() {return _shaderHashToHandle.size();}
+		uint32_t getCount() {return _handleToShaderHash.size();}
 		bool isInHuntingMode() { return _isInHuntingMode;}
 		uint64_t getActiveHuntedShaderHandle() { return _activeHuntedShaderHandle;}
 		int getActiveHuntedShaderIndex() { return _activeHuntedShaderIndex; }
-		void clearBoundShaderHandlesPerCommandList() { _boundShaderHandlePerCommandList.clear();}
 
 	private:
 		std::map<uint32_t, uint64_t> _shaderHashToHandle;		// entries here are kept alive, so we can write the keys to a file for later use
 		std::map<uint64_t, uint32_t> _handleToShaderHash;		// entries here are deleted if the handle goes out of scope
-		std::map<reshade::api::command_list*, uint64_t> _boundShaderHandlePerCommandList;
 
 		bool _isInHuntingMode = false;
 		int _activeHuntedShaderIndex = -1;
