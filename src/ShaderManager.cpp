@@ -36,23 +36,23 @@ using namespace reshade::api;
 
 namespace ShaderToggler
 {
-	ShaderManager::ShaderManager()
+	ShaderManager::ShaderManager(): _activeHuntedShaderHandle(0)
 	{
 	}
 
 
 	void ShaderManager::addHashHandlePair(uint32_t shaderHash, pipeline handle)
 	{
-		_handleToShaderHash[handle] = shaderHash;
-		_shaderHashToHandle[shaderHash] = handle;
+		_handleToShaderHash[handle.handle] = shaderHash;
+		_shaderHashToHandle[shaderHash] = handle.handle;
 	}
 
 
-	pipeline ShaderManager::getHandle(uint32_t shaderHash)
+	uint64_t ShaderManager::getHandle(uint32_t shaderHash)
 	{
 		if(_shaderHashToHandle.count(shaderHash)!=1)
 		{
-			return pipeline { reinterpret_cast<uintptr_t>(nullptr) };
+			return 0;
 		}
 		return _shaderHashToHandle.at(shaderHash);
 	}
@@ -60,11 +60,11 @@ namespace ShaderToggler
 
 	uint32_t ShaderManager::getShaderHash(pipeline handle)
 	{
-		if(_handleToShaderHash.count(handle)!=1)
+		if(_handleToShaderHash.count(handle.handle)!=1)
 		{
 			return 0;
 		}
-		return _handleToShaderHash.at(handle);
+		return _handleToShaderHash.at(handle.handle);
 	}
 
 
@@ -74,13 +74,14 @@ namespace ShaderToggler
 		{
 			_isInHuntingMode = false;
 			_activeHuntedShaderIndex = -1;
+			_activeHuntedShaderHandle = 0;
 		}
 		else
 		{
 			_isInHuntingMode = true;
 			if(_handleToShaderHash.size() > 0)
 			{
-				_activeHuntedShaderIndex = 1;
+				_activeHuntedShaderIndex = 0;
 				_activeHuntedShaderHandle = _handleToShaderHash.begin()->first;
 			}
 			else
@@ -140,5 +141,26 @@ namespace ShaderToggler
 			--_activeHuntedShaderIndex;
 		}
 		setActiveHuntedShaderHandle();
+	}
+
+
+	bool ShaderManager::isBlockedShader(command_list* commandList)
+	{
+		if(_boundShaderHandlePerCommandList.count(commandList)!=1)
+		{
+			return false;
+		}
+		// for now just check if it's the hunted shader
+		return _activeHuntedShaderHandle == _boundShaderHandlePerCommandList.at(commandList);
+	}
+
+
+	void ShaderManager::setBoundShaderHandlePerCommandList(reshade::api::command_list* commandList, uint64_t handle)
+	{
+		if(nullptr==commandList || handle==0)
+		{
+			return;
+		}
+		_boundShaderHandlePerCommandList[commandList] = handle;
 	}
 }

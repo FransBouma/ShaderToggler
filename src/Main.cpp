@@ -99,7 +99,7 @@ static void onInitPipeline(device *device, pipeline_layout, uint32_t subobject_c
 		}
 	}
 	// we're done with the hashes so we can simply clear them
-	g_shaderCodePointerToHash.clear();
+	//g_shaderCodePointerToHash.clear();
 }
 
 
@@ -117,14 +117,84 @@ static void onReshadeOverlay(reshade::api::effect_runtime *runtime)
 		const ImVec4 foregroundColor = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
 		ImGui::PushStyleColor(ImGuiCol_Text, foregroundColor);
 		ImGui::Text("# of vertex shaders gathered: %d. In hunting mode: %s", g_vertexShaderManager.getCount(), g_vertexShaderManager.isInHuntingMode() ? "true" : "false");
-		ImGui::Text("# of pixel shaders gathered: %d. In hunting mode: %s", g_pixelShaderManager.getCount(), g_vertexShaderManager.isInHuntingMode() ? "true" : "false");
+		ImGui::Text("# of pixel shaders gathered: %d. In hunting mode: %s", g_pixelShaderManager.getCount(), g_pixelShaderManager.isInHuntingMode() ? "true" : "false");
 		if(g_pixelShaderManager.isInHuntingMode())
 		{
-			ImGui::Text("Current selected shader: %d / %d", g_pixelShaderManager.getActiveHuntedShaderIndex(), g_pixelShaderManager.getCount());
+			ImGui::Text("Current selected pixel shader: %d / %d", g_pixelShaderManager.getActiveHuntedShaderIndex(), g_pixelShaderManager.getCount());
+		}
+		if(g_vertexShaderManager.isInHuntingMode())
+		{
+			ImGui::Text("Current selected vertex shader: %d / %d", g_vertexShaderManager.getActiveHuntedShaderIndex(), g_vertexShaderManager.getCount());
 		}
 		ImGui::PopStyleColor();
 		ImGui::End();
 	}
+}
+
+
+//#error THIS GIVES A PROBLEM WITH MULTI_THREADED ENGINES
+
+static void onBindPipeline(command_list* commandList, pipeline_stage stages, pipeline shaderHandle)
+{
+	if(nullptr!=commandList && shaderHandle.handle!=0)
+	{
+		switch(stages)
+		{
+			case pipeline_stage::all:
+			case pipeline_stage::all_graphics:
+				// dx12
+				break;	
+			case pipeline_stage::pixel_shader:
+				g_pixelShaderManager.setBoundShaderHandlePerCommandList(commandList, shaderHandle.handle);
+				break;
+			case pipeline_stage::vertex_shader:
+				g_vertexShaderManager.setBoundShaderHandlePerCommandList(commandList, shaderHandle.handle);
+				break;
+		}
+	}
+}
+
+
+bool blockDrawCallForCommandList(command_list* commandList)
+{
+	if(nullptr==commandList)
+	{
+		return false;
+	}
+
+	bool blockCall=g_pixelShaderManager.isBlockedShader(commandList);
+	blockCall|=g_vertexShaderManager.isBlockedShader(commandList);
+	return blockCall;
+}
+
+
+static bool onDraw(command_list* commandList, uint32_t vertex_count, uint32_t instance_count, uint32_t first_vertex, uint32_t first_instance)
+{
+	// check if for this command list the active shader handles are part of the blocked set. If so, return true
+	return blockDrawCallForCommandList(commandList);
+}
+
+
+static bool onDrawIndexed(command_list* commandList, uint32_t index_count, uint32_t instance_count, uint32_t first_index, int32_t vertex_offset, uint32_t first_instance)
+{
+	// same as onDraw
+	return blockDrawCallForCommandList(commandList);
+}
+
+
+static bool onDrawOrDispatchIndirect(command_list* commandList, indirect_command type, resource buffer, uint64_t offset, uint32_t draw_count, uint32_t stride)
+{
+	switch(type)
+	{
+		case indirect_command::unknown:
+		case indirect_command::draw:
+		case indirect_command::draw_indexed: 
+			// same as OnDraw
+			return blockDrawCallForCommandList(commandList);
+		// the rest aren't blocked processed
+	}
+	// no blocking for compute shaders.
+	return false;
 }
 
 
@@ -138,15 +208,28 @@ static void onReshadePresent(effect_runtime* runtime)
 	if(runtime->is_key_pressed(VK_END))
 	{
 		g_pixelShaderManager.toggleHuntingMode();
+		g_vertexShaderManager.toggleHuntingMode();
 	}
-	if(runtime->is_key_pressed(VK_NEXT))
-	{
-		g_pixelShaderManager.huntNextShader();
-	}
-	if(runtime->is_key_pressed(VK_PRIOR))
+	if(runtime->is_key_pressed(VK_NUMPAD1))
 	{
 		g_pixelShaderManager.huntPreviousShader();
 	}
+	if(runtime->is_key_pressed(VK_NUMPAD2))
+	{
+		g_pixelShaderManager.huntNextShader();
+	}
+	if(runtime->is_key_pressed(VK_NUMPAD4))
+	{
+		g_vertexShaderManager.huntPreviousShader();
+	}
+	if(runtime->is_key_pressed(VK_NUMPAD5))
+	{
+		g_vertexShaderManager.huntNextShader();
+	}
+
+	// clear command list - shader handle pairs
+	g_vertexShaderManager.clearBoundShaderHandlesPerCommandList();
+	g_pixelShaderManager.clearBoundShaderHandlesPerCommandList();
 }
 
 
@@ -169,6 +252,10 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
 		reshade::register_event<reshade::addon_event::init_pipeline>(onInitPipeline);
 		reshade::register_event<reshade::addon_event::reshade_overlay>(onReshadeOverlay);
 		reshade::register_event<reshade::addon_event::reshade_present>(onReshadePresent);
+		reshade::register_event<reshade::addon_event::bind_pipeline>(onBindPipeline);
+		reshade::register_event<reshade::addon_event::draw>(onDraw);
+		reshade::register_event<reshade::addon_event::draw_indexed>(onDrawIndexed);
+		reshade::register_event<reshade::addon_event::draw_or_dispatch_indirect>(onDrawOrDispatchIndirect);
 		reshade::register_overlay(nullptr, &displaySettings);
 		break;
 	case DLL_PROCESS_DETACH:
@@ -176,6 +263,10 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
 		reshade::unregister_event<reshade::addon_event::create_pipeline>(onCreatePipeline);
 		reshade::unregister_event<reshade::addon_event::init_pipeline>(onInitPipeline);
 		reshade::unregister_event<reshade::addon_event::reshade_overlay>(onReshadeOverlay);
+		reshade::unregister_event<reshade::addon_event::bind_pipeline>(onBindPipeline);
+		reshade::unregister_event<reshade::addon_event::draw>(onDraw);
+		reshade::unregister_event<reshade::addon_event::draw_indexed>(onDrawIndexed);
+		reshade::unregister_event<reshade::addon_event::draw_or_dispatch_indirect>(onDrawOrDispatchIndirect);
 		reshade::unregister_overlay(nullptr, &displaySettings);
 		reshade::unregister_addon(hModule);
 		break;

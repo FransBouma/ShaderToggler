@@ -33,6 +33,7 @@
 #pragma once
 
 #include <map>
+#include <reshade_api_device.hpp>
 #include <reshade_api_pipeline.hpp>
 
 
@@ -44,26 +45,29 @@ namespace ShaderToggler
 		ShaderManager();
 
 		void addHashHandlePair(uint32_t shaderHash, reshade::api::pipeline handle);
-		reshade::api::pipeline getHandle(uint32_t shaderHash);
+		uint64_t getHandle(uint32_t shaderHash);
 		uint32_t getShaderHash(reshade::api::pipeline handle);
 		void toggleHuntingMode();
 		void setActiveHuntedShaderHandle();
 		void huntNextShader();
 		void huntPreviousShader();
+		bool isBlockedShader(reshade::api::command_list* commandList);
+		void setBoundShaderHandlePerCommandList(reshade::api::command_list* commandList, uint64_t handle);
 
 		uint32_t getCount() {return _shaderHashToHandle.size();}
 		bool isInHuntingMode() { return _isInHuntingMode;}
-		reshade::api::pipeline getActiveHuntedShaderHandle() { return _activeHuntedShaderHandle;}
+		uint64_t getActiveHuntedShaderHandle() { return _activeHuntedShaderHandle;}
 		int getActiveHuntedShaderIndex() { return _activeHuntedShaderIndex; }
-
+		void clearBoundShaderHandlesPerCommandList() { _boundShaderHandlePerCommandList.clear();}
 
 	private:
-		std::map<uint32_t, reshade::api::pipeline> _shaderHashToHandle;
-		std::map<reshade::api::pipeline, uint32_t> _handleToShaderHash;
+		std::map<uint32_t, uint64_t> _shaderHashToHandle;
+		std::map<uint64_t, uint32_t> _handleToShaderHash;
+		std::map<reshade::api::command_list*, uint64_t> _boundShaderHandlePerCommandList;
 
 		bool _isInHuntingMode = false;
 		int _activeHuntedShaderIndex = -1;
-		reshade::api::pipeline _activeHuntedShaderHandle;
+		uint64_t _activeHuntedShaderHandle;
 	};
 }
 
