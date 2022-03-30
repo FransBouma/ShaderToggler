@@ -44,9 +44,10 @@ namespace ShaderToggler
 	public:
 		ShaderManager();
 
-		void addHashHandlePair(uint32_t shaderHash, reshade::api::pipeline handle);
+		void addHashHandlePair(uint32_t shaderHash, uint64_t handle);
+		void removeHandle(uint64_t handle);
 		uint64_t getHandle(uint32_t shaderHash);
-		uint32_t getShaderHash(reshade::api::pipeline handle);
+		uint32_t getShaderHash(uint64_t handle);
 		void toggleHuntingMode();
 		void setActiveHuntedShaderHandle();
 		void huntNextShader();
@@ -61,8 +62,8 @@ namespace ShaderToggler
 		void clearBoundShaderHandlesPerCommandList() { _boundShaderHandlePerCommandList.clear();}
 
 	private:
-		std::map<uint32_t, uint64_t> _shaderHashToHandle;
-		std::map<uint64_t, uint32_t> _handleToShaderHash;
+		std::map<uint32_t, uint64_t> _shaderHashToHandle;		// entries here are kept alive, so we can write the keys to a file for later use
+		std::map<uint64_t, uint32_t> _handleToShaderHash;		// entries here are deleted if the handle goes out of scope
 		std::map<reshade::api::command_list*, uint64_t> _boundShaderHandlePerCommandList;
 
 		bool _isInHuntingMode = false;

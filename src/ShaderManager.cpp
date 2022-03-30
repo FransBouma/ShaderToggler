@@ -41,10 +41,20 @@ namespace ShaderToggler
 	}
 
 
-	void ShaderManager::addHashHandlePair(uint32_t shaderHash, pipeline handle)
+	void ShaderManager::addHashHandlePair(uint32_t shaderHash, uint64_t handle)
 	{
-		_handleToShaderHash[handle.handle] = shaderHash;
-		_shaderHashToHandle[shaderHash] = handle.handle;
+		if(handle>0)
+		{
+			_handleToShaderHash[handle] = shaderHash;
+			_shaderHashToHandle[shaderHash] = handle;
+		}
+	}
+
+
+	void ShaderManager::removeHandle(uint64_t handle)
+	{
+		const auto it = _handleToShaderHash.find(handle);
+		_handleToShaderHash.erase(it, _handleToShaderHash.end());
 	}
 
 
@@ -58,13 +68,13 @@ namespace ShaderToggler
 	}
 
 
-	uint32_t ShaderManager::getShaderHash(pipeline handle)
+	uint32_t ShaderManager::getShaderHash(uint64_t handle)
 	{
-		if(_handleToShaderHash.count(handle.handle)!=1)
+		if(_handleToShaderHash.count(handle)!=1)
 		{
 			return 0;
 		}
-		return _handleToShaderHash.at(handle.handle);
+		return _handleToShaderHash.at(handle);
 	}
 
 
