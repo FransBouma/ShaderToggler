@@ -35,6 +35,8 @@
 #include <map>
 #include <reshade_api_device.hpp>
 #include <reshade_api_pipeline.hpp>
+#include <shared_mutex>
+#include <unordered_set>
 
 
 namespace ShaderToggler
@@ -44,28 +46,33 @@ namespace ShaderToggler
 	public:
 		ShaderManager();
 
-		void addHashHandlePair(uint32_t shaderHash, uint64_t handle);
+		void addHashHandlePair(uint32_t shaderHash, uint64_t pipelineHandle);
 		void removeHandle(uint64_t handle);
-		uint64_t getHandle(uint32_t shaderHash);
 		uint32_t getShaderHash(uint64_t handle);
 		void toggleHuntingMode();
 		void setActiveHuntedShaderHandle();
 		void huntNextShader();
 		void huntPreviousShader();
 		bool isBlockedShader(uint64_t handle);
+		void addActivePipelineHandle(uint64_t handle);
 
-		uint32_t getCount() {return _handleToShaderHash.size();}
+		uint32_t getPipelineCount() {return _handleToShaderHash.size();}
+		uint32_t getShaderCount() { return _shaderHashes.size();}
+		uint32_t getAmountShaderHashesCollected() { return _collectedActiveShaderHashes.size(); }
 		bool isInHuntingMode() { return _isInHuntingMode;}
-		uint64_t getActiveHuntedShaderHandle() { return _activeHuntedShaderHandle;}
+		uint64_t getActiveHuntedShaderHash() { return _activeHuntedShaderHash;}
 		int getActiveHuntedShaderIndex() { return _activeHuntedShaderIndex; }
 
 	private:
-		std::map<uint32_t, uint64_t> _shaderHashToHandle;		// entries here are kept alive, so we can write the keys to a file for later use
-		std::map<uint64_t, uint32_t> _handleToShaderHash;		// entries here are deleted if the handle goes out of scope
+		std::unordered_set<uint32_t> _shaderHashes;				// all shader hashes added through init pipeline
+		std::map<uint64_t, uint32_t> _handleToShaderHash;		// pipeline handle per shader hash. Handle is removed when a pipeline is destroyed.
+		std::unordered_set<uint32_t> _collectedActiveShaderHashes;	// shader hashes bound to pipeline handles which were collected during the collection phase after hunting was enabled, which are the pipeline handles active during the last X frames
 
 		bool _isInHuntingMode = false;
 		int _activeHuntedShaderIndex = -1;
-		uint64_t _activeHuntedShaderHandle;
+		uint32_t _activeHuntedShaderHash;
+		std::shared_mutex _collectedActiveHandlesMutex;
+		std::shared_mutex _hashHandlesMutex;
 	};
 }
 

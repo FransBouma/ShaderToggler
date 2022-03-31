@@ -36,40 +36,39 @@ using namespace reshade::api;
 
 namespace ShaderToggler
 {
-	ShaderManager::ShaderManager(): _activeHuntedShaderHandle(0)
+	ShaderManager::ShaderManager(): _activeHuntedShaderHash(0)
 	{
 	}
 
 
-	void ShaderManager::addHashHandlePair(uint32_t shaderHash, uint64_t handle)
+	void ShaderManager::addHashHandlePair(uint32_t shaderHash, uint64_t pipelineHandle)
 	{
-		if(handle>0)
+		if(pipelineHandle>0 && shaderHash > 0)
 		{
-			_handleToShaderHash[handle] = shaderHash;
-			_shaderHashToHandle[shaderHash] = handle;
+			std::unique_lock lock(_hashHandlesMutex);
+			_handleToShaderHash[pipelineHandle] = shaderHash;
+			_shaderHashes.emplace(shaderHash);
 		}
 	}
 
 
 	void ShaderManager::removeHandle(uint64_t handle)
 	{
-		const auto it = _handleToShaderHash.find(handle);
-		_handleToShaderHash.erase(it, _handleToShaderHash.end());
-	}
-
-
-	uint64_t ShaderManager::getHandle(uint32_t shaderHash)
-	{
-		if(_shaderHashToHandle.count(shaderHash)!=1)
+		std::unique_lock lock(_hashHandlesMutex);
+		if(_handleToShaderHash.count(handle)==1)
 		{
-			return 0;
+			const auto it = _handleToShaderHash.find(handle);
+			const auto shaderHash = it->second;
+			_handleToShaderHash.erase(it, _handleToShaderHash.end());
+			_collectedActiveShaderHashes.erase(shaderHash);
+			_shaderHashes.erase(shaderHash);
 		}
-		return _shaderHashToHandle.at(shaderHash);
 	}
 
 
 	uint32_t ShaderManager::getShaderHash(uint64_t handle)
 	{
+		std::shared_lock lock(_hashHandlesMutex);
 		if(_handleToShaderHash.count(handle)!=1)
 		{
 			return 0;
@@ -84,29 +83,28 @@ namespace ShaderToggler
 		{
 			_isInHuntingMode = false;
 			_activeHuntedShaderIndex = -1;
-			_activeHuntedShaderHandle = 0;
+			_activeHuntedShaderHash = 0;
 		}
 		else
 		{
+			_collectedActiveShaderHashes.clear();			// clear it so we start with a clean slate
 			_isInHuntingMode = true;
-			if(_handleToShaderHash.size() > 0)
-			{
-				_activeHuntedShaderIndex = 0;
-				_activeHuntedShaderHandle = _handleToShaderHash.begin()->first;
-			}
-			else
-			{
-				_activeHuntedShaderIndex = -1;
-			}
+			_activeHuntedShaderIndex = -1;
+			_activeHuntedShaderHash = 0;
 		}
 	}
 
 
 	void ShaderManager::setActiveHuntedShaderHandle()
 	{
-		auto it = _handleToShaderHash.begin();
+		if(_activeHuntedShaderIndex<0 || _collectedActiveShaderHashes.size()<=0 || _activeHuntedShaderIndex >= _collectedActiveShaderHashes.size())
+		{
+			_activeHuntedShaderHash = 0;
+			return;
+		}
+		auto it = _collectedActiveShaderHashes.begin();
 		std::advance(it, _activeHuntedShaderIndex);
-		_activeHuntedShaderHandle = it->first;
+		_activeHuntedShaderHash = *it;
 	}
 
 
@@ -116,11 +114,12 @@ namespace ShaderToggler
 		{
 			return;
 		}
-		if(_handleToShaderHash.size()<=0)
+		if(_collectedActiveShaderHashes.size()<=0)
 		{
 			return;
 		}
-		if(_activeHuntedShaderIndex<_handleToShaderHash.size()-1)
+		std::shared_lock lock(_collectedActiveHandlesMutex);
+		if(_activeHuntedShaderIndex<_collectedActiveShaderHashes.size()-1)
 		{
 			_activeHuntedShaderIndex++;
 		}
@@ -138,13 +137,14 @@ namespace ShaderToggler
 		{
 			return;
 		}
-		if(_handleToShaderHash.size()<=0)
+		if(_collectedActiveShaderHashes.size()<=0)
 		{
 			return;
 		}
+		std::shared_lock lock(_collectedActiveHandlesMutex);
 		if(_activeHuntedShaderIndex<=0)
 		{
-			_activeHuntedShaderIndex = _handleToShaderHash.size()-1;
+			_activeHuntedShaderIndex = _collectedActiveShaderHashes.size()-1;
 		}
 		else
 		{
@@ -156,6 +156,20 @@ namespace ShaderToggler
 
 	bool ShaderManager::isBlockedShader(uint64_t handle)
 	{
-		return _activeHuntedShaderHandle == handle;
+		// get the shader hash bound to this pipeline handle
+		const auto shaderHash = getShaderHash(handle);
+		return shaderHash<=0 ? false : _activeHuntedShaderHash == shaderHash;
+	}
+
+
+	void ShaderManager::addActivePipelineHandle(uint64_t handle)
+	{
+		std::unique_lock lock(_collectedActiveHandlesMutex);
+		// get the shader hash bound to this pipeline handle
+		const auto shaderHash = getShaderHash(handle);
+		if(shaderHash>0)
+		{
+			_collectedActiveShaderHashes.emplace(shaderHash);
+		}
 	}
 }
