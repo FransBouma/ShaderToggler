@@ -38,6 +38,8 @@
 #include <shared_mutex>
 #include <unordered_set>
 
+#include "CDataFile.h"
+
 
 namespace ShaderToggler
 {
@@ -48,13 +50,14 @@ namespace ShaderToggler
 
 		void addHashHandlePair(uint32_t shaderHash, uint64_t pipelineHandle);
 		void removeHandle(uint64_t handle);
-		uint32_t getShaderHash(uint64_t handle);
 		void toggleHuntingMode();
-		void setActiveHuntedShaderHandle();
 		void huntNextShader();
 		void huntPreviousShader();
 		bool isBlockedShader(uint64_t handle);
 		void addActivePipelineHandle(uint64_t handle);
+		void toggleMarkOnHuntedShader();
+		void saveMarkedHashes(CDataFile& iniFile, std::string category);
+		void loadMarkedHashes(CDataFile& iniFile, std::string category);
 
 		uint32_t getPipelineCount() {return _handleToShaderHash.size();}
 		uint32_t getShaderCount() { return _shaderHashes.size();}
@@ -62,17 +65,36 @@ namespace ShaderToggler
 		bool isInHuntingMode() { return _isInHuntingMode;}
 		uint64_t getActiveHuntedShaderHash() { return _activeHuntedShaderHash;}
 		int getActiveHuntedShaderIndex() { return _activeHuntedShaderIndex; }
+		void toggleHideMarkedShaders() { _hideMarkedShaders=!_hideMarkedShaders;}
 
+		bool isHuntedShaderMarked()
+		{
+			std::shared_lock lock(_markedShaderHashMutex);
+			return _markedShaderHashes.count(_activeHuntedShaderHash)==1;
+		}
+
+		bool isKnownHandle(uint64_t pipelineHandle)
+		{
+			std::shared_lock lock(_hashHandlesMutex);
+			return _handleToShaderHash.count(pipelineHandle)==1;
+		}
+		
 	private:
+		uint32_t getShaderHash(uint64_t handle);
+		void setActiveHuntedShaderHandle();
+		
 		std::unordered_set<uint32_t> _shaderHashes;				// all shader hashes added through init pipeline
 		std::map<uint64_t, uint32_t> _handleToShaderHash;		// pipeline handle per shader hash. Handle is removed when a pipeline is destroyed.
 		std::unordered_set<uint32_t> _collectedActiveShaderHashes;	// shader hashes bound to pipeline handles which were collected during the collection phase after hunting was enabled, which are the pipeline handles active during the last X frames
+		std::unordered_set<uint32_t> _markedShaderHashes;		// the hashes for shaders which are currently marked. 
 
 		bool _isInHuntingMode = false;
 		int _activeHuntedShaderIndex = -1;
 		uint32_t _activeHuntedShaderHash;
 		std::shared_mutex _collectedActiveHandlesMutex;
 		std::shared_mutex _hashHandlesMutex;
+		std::shared_mutex _markedShaderHashMutex;
+		bool _hideMarkedShaders = false;
 	};
 }
 

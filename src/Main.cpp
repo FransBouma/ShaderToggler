@@ -32,13 +32,15 @@
 
 #define IMGUI_DISABLE_INCLUDE_IMCONFIG_H
 #define ImTextureID unsigned long long // Change ImGui texture ID type to that of a 'reshade::api::resource_view' handle
+
 #define FRAMECOUNT_COLLECTION_PHASE 250;
+#define HASH_FILE_NAME	"ShaderToggler.ini"
 
 #include <imgui.h>
 #include <reshade.hpp>
 #include "crc32_hash.hpp"
-#include <map>
 #include "ShaderManager.h"
+#include "CDataFile.h"
 
 using namespace reshade::api;
 
@@ -53,7 +55,7 @@ struct __declspec(uuid("038B03AA-4C75-443B-A695-752D80797037")) CommandListDataC
 static ShaderToggler::ShaderManager g_pixelShaderManager;
 static ShaderToggler::ShaderManager g_vertexShaderManager;
 static bool g_shaderHuntingModeActive = false;
-static uint32_t g_activeCollectorFrameCounter = 0;
+static std::atomic<uint32_t> g_activeCollectorFrameCounter = 0;
 
 #ifdef _DEBUG
 static bool g_osdInfoVisible = true;
@@ -74,6 +76,29 @@ static uint32_t calculateShaderHash(void* shaderData)
 }
 
 
+void loadHashFile()
+{
+	CDataFile iniFile;
+	if(!iniFile.Load(HASH_FILE_NAME))
+	{
+		// not there
+		return;
+	}
+	g_pixelShaderManager.loadMarkedHashes(iniFile, "PixelShaders");
+	g_vertexShaderManager.loadMarkedHashes(iniFile, "VertexShaders");
+}
+
+
+void saveHashFile()
+{
+	CDataFile iniFile;
+	g_pixelShaderManager.saveMarkedHashes(iniFile, "PixelShaders");
+	g_vertexShaderManager.saveMarkedHashes(iniFile, "VertexShaders");
+	iniFile.SetFileName(HASH_FILE_NAME);
+	iniFile.Save();
+}
+
+
 static void onInitCommandList(command_list *commandList)
 {
 	commandList->create_private_data<CommandListDataContainer>();
@@ -85,6 +110,12 @@ static void onDestroyCommandList(command_list *commandList)
 	commandList->destroy_private_data<CommandListDataContainer>();
 }
 
+static void onResetCommandList(command_list *commandList)
+{
+	CommandListDataContainer &commandListData = commandList->get_private_data<CommandListDataContainer>();
+	commandListData.activePixelShaderPipeline = -1;
+	commandListData.activeVertexShaderPipeline = -1;
+}
 
 
 static void onInitPipeline(device *device, pipeline_layout, uint32_t subobjectCount, const pipeline_subobject *subobjects, pipeline pipelineHandle)
@@ -133,7 +164,8 @@ static void onReshadeOverlay(reshade::api::effect_runtime *runtime)
 		ImGui::Text("# of pipelines with pixel shaders: %d. # of different pixel shaders gathered: %d.", g_pixelShaderManager.getPipelineCount(), g_pixelShaderManager.getShaderCount());
 		if(g_activeCollectorFrameCounter > 0)
 		{
-			ImGui::Text("Collecting active shaders... frames to go: %d", g_activeCollectorFrameCounter);
+			uint32_t counterValue = g_activeCollectorFrameCounter;
+			ImGui::Text("Collecting active shaders... frames to go: %d", counterValue);
 		}
 		else
 		{
@@ -145,13 +177,15 @@ static void onReshadeOverlay(reshade::api::effect_runtime *runtime)
 			{
 				const uint32_t amountCollected = g_vertexShaderManager.getAmountShaderHashesCollected();
 				ImGui::Text("# of vertex shaders active: %d", g_vertexShaderManager.getAmountShaderHashesCollected());
-				ImGui::Text("Current selected vertex shader: %d / %d", g_vertexShaderManager.getActiveHuntedShaderIndex(), amountCollected);
+				const auto isMarkedText = g_vertexShaderManager.isHuntedShaderMarked() ? " Shader is part of toggle group." : "";
+				ImGui::Text("Current selected vertex shader: %d / %d. %s", g_vertexShaderManager.getActiveHuntedShaderIndex(), amountCollected, isMarkedText);
 			}
 			if(g_pixelShaderManager.isInHuntingMode())
 			{
 				const uint32_t amountCollected = g_pixelShaderManager.getAmountShaderHashesCollected();
 				ImGui::Text("# of pixel shaders active: %d", g_pixelShaderManager.getAmountShaderHashesCollected());
-				ImGui::Text("Current selected pixel shader: %d / %d", g_pixelShaderManager.getActiveHuntedShaderIndex(), amountCollected);
+				const auto isMarkedText = g_pixelShaderManager.isHuntedShaderMarked() ? " Shader is part of toggle group." : "";
+				ImGui::Text("Current selected pixel shader: %d / %d. %s", g_pixelShaderManager.getActiveHuntedShaderIndex(), amountCollected, isMarkedText);
 			}
 		}
 		ImGui::PopStyleColor();
@@ -164,35 +198,56 @@ static void onBindPipeline(command_list* commandList, pipeline_stage stages, pip
 {
 	if(nullptr!=commandList && pipelineHandle.handle!=0)
 	{
+		const bool handleHasPixelShaderAttached = g_pixelShaderManager.isKnownHandle(pipelineHandle.handle);
+		const bool handleHasVertexShaderAttached = g_vertexShaderManager.isKnownHandle(pipelineHandle.handle);
+		if(!handleHasPixelShaderAttached && !handleHasVertexShaderAttached)
+		{
+			// draw call with unknown handle, don't collect it
+			return;
+		}
 		CommandListDataContainer &commandListData = commandList->get_private_data<CommandListDataContainer>();
 		switch(stages)
 		{
 			case pipeline_stage::all:
-			case pipeline_stage::all_graphics:
 				if(g_activeCollectorFrameCounter>0)
 				{
 					// in collection mode
-					g_pixelShaderManager.addActivePipelineHandle(pipelineHandle.handle);
-					g_vertexShaderManager.addActivePipelineHandle(pipelineHandle.handle);
+					if(handleHasPixelShaderAttached)
+					{
+						g_pixelShaderManager.addActivePipelineHandle(pipelineHandle.handle);
+					}
+					if(handleHasVertexShaderAttached)
+					{
+						g_vertexShaderManager.addActivePipelineHandle(pipelineHandle.handle);
+					}
 				}
-				commandListData.activePixelShaderPipeline = pipelineHandle.handle;
-				commandListData.activeVertexShaderPipeline = pipelineHandle.handle;
+				else
+				{
+					commandListData.activePixelShaderPipeline = handleHasPixelShaderAttached ? pipelineHandle.handle : -1;
+					commandListData.activeVertexShaderPipeline = handleHasVertexShaderAttached ? pipelineHandle.handle : -1;
+				}
 				break;	
 			case pipeline_stage::pixel_shader:
-				if(g_activeCollectorFrameCounter>0)
+				if(handleHasPixelShaderAttached)
 				{
-					// in collection mode
-					g_pixelShaderManager.addActivePipelineHandle(pipelineHandle.handle);
+					if(g_activeCollectorFrameCounter>0)
+					{
+						// in collection mode
+						g_pixelShaderManager.addActivePipelineHandle(pipelineHandle.handle);
+					}
+					commandListData.activePixelShaderPipeline = pipelineHandle.handle;
 				}
-				commandListData.activePixelShaderPipeline = pipelineHandle.handle;
 				break;
 			case pipeline_stage::vertex_shader:
-				if(g_activeCollectorFrameCounter>0)
+				if(handleHasVertexShaderAttached)
 				{
-					// in collection mode
-					g_vertexShaderManager.addActivePipelineHandle(pipelineHandle.handle);
+					if(g_activeCollectorFrameCounter>0)
+					{
+						// in collection mode
+						g_vertexShaderManager.addActivePipelineHandle(pipelineHandle.handle);
+					}
+					commandListData.activeVertexShaderPipeline = pipelineHandle.handle;
 				}
-				commandListData.activeVertexShaderPipeline = pipelineHandle.handle;
 				break;
 		}
 	}
@@ -247,15 +302,18 @@ static void onReshadePresent(effect_runtime* runtime)
 {
 	if(g_activeCollectorFrameCounter>0)
 	{
-		g_activeCollectorFrameCounter--;
+		--g_activeCollectorFrameCounter;
 	}
 
 	// handle key presses. For now hardcoded, pixel shaders only
 	// Keys:
 	// Numpad 1: previous pixel shader
 	// Numpad 2: next pixel shader
+	// Numpad 3: mark current pixel shader as part of the toggle group
 	// Numpad 4: previous vertex shader
 	// Numpad 5: next vertex shader
+	// Numpad 6: mark current vertex shader as part of the toggle group
+	// CAPS_LOCK: toggle the shaders currently in the toggle group
 	if(runtime->is_key_pressed(VK_NUMPAD1))
 	{
 		g_pixelShaderManager.huntPreviousShader();
@@ -264,6 +322,10 @@ static void onReshadePresent(effect_runtime* runtime)
 	{
 		g_pixelShaderManager.huntNextShader();
 	}
+	if(runtime->is_key_pressed(VK_NUMPAD3))
+	{
+		g_pixelShaderManager.toggleMarkOnHuntedShader();
+	}
 	if(runtime->is_key_pressed(VK_NUMPAD4))
 	{
 		g_vertexShaderManager.huntPreviousShader();
@@ -271,6 +333,16 @@ static void onReshadePresent(effect_runtime* runtime)
 	if(runtime->is_key_pressed(VK_NUMPAD5))
 	{
 		g_vertexShaderManager.huntNextShader();
+	}
+	if(runtime->is_key_pressed(VK_NUMPAD6))
+	{
+		g_vertexShaderManager.toggleMarkOnHuntedShader();
+	}
+
+	if(runtime->is_key_pressed(VK_CAPITAL))
+	{
+		g_vertexShaderManager.toggleHideMarkedShaders();
+		g_pixelShaderManager.toggleHideMarkedShaders();
 	}
 }
 
@@ -288,6 +360,10 @@ static void displaySettings(reshade::api::effect_runtime *runtime)
 			g_activeCollectorFrameCounter = FRAMECOUNT_COLLECTION_PHASE;
 		}
 	}
+	if(ImGui::Button("Save toggle group"))
+	{
+		saveHashFile();
+	}
 }
 
 
@@ -303,6 +379,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
 		reshade::register_event<reshade::addon_event::init_pipeline>(onInitPipeline);
 		reshade::register_event<reshade::addon_event::init_command_list>(onInitCommandList);
 		reshade::register_event<reshade::addon_event::destroy_command_list>(onDestroyCommandList);
+		reshade::register_event<reshade::addon_event::reset_command_list>(onResetCommandList);
 		reshade::register_event<reshade::addon_event::destroy_pipeline>(onDestroyPipeline);
 		reshade::register_event<reshade::addon_event::reshade_overlay>(onReshadeOverlay);
 		reshade::register_event<reshade::addon_event::reshade_present>(onReshadePresent);
@@ -311,6 +388,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
 		reshade::register_event<reshade::addon_event::draw_indexed>(onDrawIndexed);
 		reshade::register_event<reshade::addon_event::draw_or_dispatch_indirect>(onDrawOrDispatchIndirect);
 		reshade::register_overlay(nullptr, &displaySettings);
+		loadHashFile();
 		break;
 	case DLL_PROCESS_DETACH:
 		reshade::unregister_event<reshade::addon_event::reshade_present>(onReshadePresent);
@@ -323,6 +401,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
 		reshade::unregister_event<reshade::addon_event::draw_or_dispatch_indirect>(onDrawOrDispatchIndirect);
 		reshade::unregister_event<reshade::addon_event::init_command_list>(onInitCommandList);
 		reshade::unregister_event<reshade::addon_event::destroy_command_list>(onDestroyCommandList);
+		reshade::unregister_event<reshade::addon_event::reset_command_list>(onResetCommandList);
 		reshade::unregister_overlay(nullptr, &displaySettings);
 		reshade::unregister_addon(hModule);
 		break;

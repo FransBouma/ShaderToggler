@@ -31,6 +31,7 @@
 /////////////////////////////////////////////////////////////////////////
 
 #include "ShaderManager.h"
+#include "CDataFile.h"
 
 using namespace reshade::api;
 
@@ -54,27 +55,17 @@ namespace ShaderToggler
 
 	void ShaderManager::removeHandle(uint64_t handle)
 	{
-		std::unique_lock lock(_hashHandlesMutex);
+		std::unique_lock ulock(_hashHandlesMutex);
 		if(_handleToShaderHash.count(handle)==1)
 		{
 			const auto it = _handleToShaderHash.find(handle);
 			const auto shaderHash = it->second;
-			_handleToShaderHash.erase(it, _handleToShaderHash.end());
+			_handleToShaderHash.erase(handle);
 			_collectedActiveShaderHashes.erase(shaderHash);
 			_shaderHashes.erase(shaderHash);
 		}
 	}
 
-
-	uint32_t ShaderManager::getShaderHash(uint64_t handle)
-	{
-		std::shared_lock lock(_hashHandlesMutex);
-		if(_handleToShaderHash.count(handle)!=1)
-		{
-			return 0;
-		}
-		return _handleToShaderHash.at(handle);
-	}
 
 
 	void ShaderManager::toggleHuntingMode()
@@ -87,10 +78,13 @@ namespace ShaderToggler
 		}
 		else
 		{
-			_collectedActiveShaderHashes.clear();			// clear it so we start with a clean slate
 			_isInHuntingMode = true;
 			_activeHuntedShaderIndex = -1;
 			_activeHuntedShaderHash = 0;
+			{
+				std::unique_lock lock(_collectedActiveHandlesMutex);
+				_collectedActiveShaderHashes.clear();			// clear it so we start with a clean slate
+			}
 		}
 	}
 
@@ -102,6 +96,8 @@ namespace ShaderToggler
 			_activeHuntedShaderHash = 0;
 			return;
 		}
+
+		// no lock needed, collecting phase is over
 		auto it = _collectedActiveShaderHashes.begin();
 		std::advance(it, _activeHuntedShaderIndex);
 		_activeHuntedShaderHash = *it;
@@ -118,7 +114,6 @@ namespace ShaderToggler
 		{
 			return;
 		}
-		std::shared_lock lock(_collectedActiveHandlesMutex);
 		if(_activeHuntedShaderIndex<_collectedActiveShaderHashes.size()-1)
 		{
 			_activeHuntedShaderIndex++;
@@ -141,7 +136,7 @@ namespace ShaderToggler
 		{
 			return;
 		}
-		std::shared_lock lock(_collectedActiveHandlesMutex);
+
 		if(_activeHuntedShaderIndex<=0)
 		{
 			_activeHuntedShaderIndex = _collectedActiveShaderHashes.size()-1;
@@ -156,20 +151,87 @@ namespace ShaderToggler
 
 	bool ShaderManager::isBlockedShader(uint64_t handle)
 	{
-		// get the shader hash bound to this pipeline handle
+		bool toReturn = false;
 		const auto shaderHash = getShaderHash(handle);
-		return shaderHash<=0 ? false : _activeHuntedShaderHash == shaderHash;
+		if(_isInHuntingMode)
+		{
+			// get the shader hash bound to this pipeline handle
+			toReturn |= shaderHash<=0 ? false : _activeHuntedShaderHash == shaderHash;
+		}
+		if(_hideMarkedShaders)
+		{
+			// check if the shader hash is part of the toggle group
+			toReturn |= _markedShaderHashes.count(shaderHash)==1;
+		}
+
+		return toReturn;
 	}
 
 
 	void ShaderManager::addActivePipelineHandle(uint64_t handle)
 	{
-		std::unique_lock lock(_collectedActiveHandlesMutex);
 		// get the shader hash bound to this pipeline handle
 		const auto shaderHash = getShaderHash(handle);
 		if(shaderHash>0)
 		{
+			std::unique_lock lock(_collectedActiveHandlesMutex);
 			_collectedActiveShaderHashes.emplace(shaderHash);
 		}
+	}
+
+
+	void ShaderManager::toggleMarkOnHuntedShader()
+	{
+		if(_activeHuntedShaderHash<=0)
+		{
+			return;
+		}
+		std::unique_lock lock(_markedShaderHashMutex);
+		if(_markedShaderHashes.count(_activeHuntedShaderHash)==1)
+		{
+			// remove it
+			_markedShaderHashes.erase(_activeHuntedShaderHash);
+		}
+		else
+		{
+			// add it
+			_markedShaderHashes.emplace(_activeHuntedShaderHash);
+		}
+	}
+
+
+	void ShaderManager::saveMarkedHashes(CDataFile& iniFile, std::string category)
+	{
+		int counter = 0;
+		for(const auto& hash:_markedShaderHashes)
+		{
+			iniFile.SetUInt("ShaderHash" + std::to_string(counter), hash, "", category);
+			counter++;
+		}
+		iniFile.SetUInt("AmountHashes", counter, "", category);
+	}
+
+
+	void ShaderManager::loadMarkedHashes(CDataFile& iniFile, std::string category)
+	{
+		const int amount = iniFile.GetInt("AmountHashes", category);
+		for(int i = 0;i< amount;i++)
+		{
+			uint32_t hash = iniFile.GetUInt("ShaderHash" + std::to_string(i), category);
+			if(hash!=UINT_MAX)
+			{
+				_markedShaderHashes.emplace(hash);
+			}
+		}
+	}
+
+
+	uint32_t ShaderManager::getShaderHash(uint64_t handle)
+	{
+		if(_handleToShaderHash.count(handle)!=1)
+		{
+			return 0;
+		}
+		return _handleToShaderHash.at(handle);
 	}
 }
