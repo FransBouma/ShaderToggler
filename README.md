@@ -6,6 +6,9 @@ The current state is a proof-of-work addon which can build a single group and to
 
 ## How to use
 
+Place the `ShaderToggler.addon` in the same folder as Reshade 5.0.2+. Be sure to use the Reshade version which supports Addons (so the unsigned version). 
+When you start your game, the `Addons` tab in the Reshade gui should show the ShaderToggler information and controls.
+
 To create a toggle for a set of shaders, open the reshade gui and go to the addon's tab -> Shader Toggler area. Then check the
 `Show OSD Info` checkbox. This will display the actual # of shaders it has found.
 
