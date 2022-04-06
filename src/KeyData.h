@@ -1,8 +1,12 @@
-////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Part of Injectable Generic Camera System
-// Copyright(c) 2017, Frans Bouma
+///////////////////////////////////////////////////////////////////////
+//
+// Part of ShaderToggler, a shader toggler add on for Reshade 5+ which allows you
+// to define groups of shaders to toggle them on/off with one key press
+// 
+// (c) Frans 'Otis_Inf' Bouma.
+//
 // All rights reserved.
-// https://github.com/FransBouma/InjectableGenericCameraSystem
+// https://github.com/FransBouma/ShaderToggler
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met :
@@ -24,23 +28,45 @@
 // CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 // OR TORT(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-////////////////////////////////////////////////////////////////////////////////////////////////////////
-// stdafx.h : include file for standard system include files,
-// or project specific include files that are used frequently, but
-// are changed infrequently
-//
-
+/////////////////////////////////////////////////////////////////////////
 #pragma once
 
-#include <SDKDDKVer.h>
+#include <reshade_api.hpp>
 
-// Windows Header Files:
-#include <windows.h>
-#include <iostream>
-#include <string>
-#include <tchar.h>
-#include <Psapi.h>
-#include <utility>
-#include <vector>
+#include "stdafx.h"
 
-// TODO: reference additional headers your program requires here
+namespace ShaderToggler
+{
+	class KeyData
+	{
+	public:
+		KeyData();
+
+		/// <summary>
+		/// Ini file variant which has ctrl/shift/alt requirements baked in.
+		/// </summary>
+		/// <param name="newKeyValue"></param>
+		void setKeyFromIniFile(uint32_t newKeyValue);
+		void setKey(uint8_t newKeyValue, bool shiftRequired=false, bool altRequired=false, bool ctrlRequired=false);
+		uint32_t getKeyForIniFile() const;
+		void clear();
+		void collectKeysPressed(const reshade::api::effect_runtime* runtime);;
+
+		std::string getKeyAsString() { return _keyAsString;}
+		uint8_t getKeyCode() { return _keyCode;}
+		bool isValid() { return _keyCode > 0; }
+
+	private:
+		static std::string vkCodeToString(uint8_t vkCode);
+
+		void setKeyAsString();
+
+		uint8_t _keyCode;
+		bool _shiftRequired;
+		bool _altRequired;
+		bool _ctrlRequired;
+		std::string _keyAsString;
+
+	};
+}
+

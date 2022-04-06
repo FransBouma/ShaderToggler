@@ -41,8 +41,10 @@
 #include "crc32_hash.hpp"
 #include "ShaderManager.h"
 #include "CDataFile.h"
+#include "ToggleGroup.h"
 
 using namespace reshade::api;
+using namespace ShaderToggler;
 
 extern "C" __declspec(dllexport) const char *NAME = "Shader Toggler";
 extern "C" __declspec(dllexport) const char *DESCRIPTION = "Add-on which allows you to define groups of shaders to toggle on/off with one key press.";
@@ -55,7 +57,10 @@ struct __declspec(uuid("038B03AA-4C75-443B-A695-752D80797037")) CommandListDataC
 static ShaderToggler::ShaderManager g_pixelShaderManager;
 static ShaderToggler::ShaderManager g_vertexShaderManager;
 static bool g_shaderHuntingModeActive = false;
-static std::atomic<uint32_t> g_activeCollectorFrameCounter = 0;
+static atomic_uint32_t g_activeCollectorFrameCounter = 0;
+static std::vector<ToggleGroup> g_toggleGroups;
+static atomic_int g_actionKeyBindingEditing = -1;
+static KeyData g_keyCollector;
 
 #ifdef _DEBUG
 static bool g_osdInfoVisible = true;
@@ -76,24 +81,64 @@ static uint32_t calculateShaderHash(void* shaderData)
 }
 
 
+/// <summary>
+/// Adds a default group with VK_CAPITAL as toggle key. Only used if there aren't any groups defined in the ini file.
+/// </summary>
+void addDefaultGroup()
+{
+	ToggleGroup toAdd("Default");
+	toAdd.setToggleKey(VK_CAPITAL, false, false, false);
+	g_toggleGroups.push_back(toAdd);
+}
+
+
 void loadHashFile()
 {
+	// Will assume it's started at the start of the application and therefore no groups are present.
+
 	CDataFile iniFile;
 	if(!iniFile.Load(HASH_FILE_NAME))
 	{
 		// not there
+		addDefaultGroup();
 		return;
 	}
-	g_pixelShaderManager.loadMarkedHashes(iniFile, "PixelShaders");
-	g_vertexShaderManager.loadMarkedHashes(iniFile, "VertexShaders");
+	int groupCounter = 0;
+	const int numberOfGroups = iniFile.GetInt("AmountGroups", "General");
+	if(numberOfGroups==INT_MIN)
+	{
+		// old format file?
+		addDefaultGroup();
+		groupCounter=-1;	// enforce old format read for pre 1.0 ini file.
+	}
+	else
+	{
+		for(int i=0;i<numberOfGroups;i++)
+		{
+			g_toggleGroups.push_back(ToggleGroup(""));
+		}
+	}
+	for(auto& group: g_toggleGroups)
+	{
+		group.loadState(iniFile, groupCounter);		// groupCounter is normally 0 or greater. For when the old format is detected, it's -1 (and there's 1 group).
+		groupCounter++;
+	}
 }
 
 
 void saveHashFile()
 {
+	// format: first section with # of groups, then per group a section with pixel and vertex shaders, as well as their name and key value.
+	// groups are stored with "Group" + group counter, starting with 0.
 	CDataFile iniFile;
-	g_pixelShaderManager.saveMarkedHashes(iniFile, "PixelShaders");
-	g_vertexShaderManager.saveMarkedHashes(iniFile, "VertexShaders");
+	iniFile.SetInt("AmountGroups", g_toggleGroups.size(), "General");
+
+	int groupCounter = 0;
+	for(const auto& group: g_toggleGroups)
+	{
+		group.saveState(iniFile, groupCounter);
+		groupCounter++;
+	}
 	iniFile.SetFileName(HASH_FILE_NAME);
 	iniFile.Save();
 }
@@ -262,8 +307,18 @@ bool blockDrawCallForCommandList(command_list* commandList)
 	}
 
 	const CommandListDataContainer &commandListData = commandList->get_private_data<CommandListDataContainer>();
-	bool blockCall = g_pixelShaderManager.isBlockedShader(commandListData.activePixelShaderPipeline);
-	blockCall |= g_vertexShaderManager.isBlockedShader(commandListData.activeVertexShaderPipeline);
+	uint32_t shaderHash = g_pixelShaderManager.getShaderHash(commandListData.activePixelShaderPipeline);
+	bool blockCall = g_pixelShaderManager.isBlockedShader(shaderHash);
+	for(auto& group : g_toggleGroups)
+	{
+		blockCall |= group.isBlockedPixelShader(shaderHash);
+	}
+	shaderHash = g_vertexShaderManager.getShaderHash(commandListData.activePixelShaderPipeline);
+	blockCall |= g_vertexShaderManager.isBlockedShader(shaderHash);
+	for(auto& group : g_toggleGroups)
+	{
+		blockCall |= group.isBlockedVertexShader(shaderHash);
+	}
 	return blockCall;
 }
 
@@ -305,15 +360,26 @@ static void onReshadePresent(effect_runtime* runtime)
 		--g_activeCollectorFrameCounter;
 	}
 
-	// handle key presses. For now hardcoded, pixel shaders only
-	// Keys:
+	for(auto& group: g_toggleGroups)
+	{
+		if(runtime->is_key_pressed(group.getToggleKey()))
+		{
+			group.toggleActive();
+			if(group.isEditing())
+			{
+				g_vertexShaderManager.toggleHideMarkedShaders();
+				g_pixelShaderManager.toggleHideMarkedShaders();
+			}
+		}
+	}
+
+	// hardcoded hunting keys. 
 	// Numpad 1: previous pixel shader
 	// Numpad 2: next pixel shader
 	// Numpad 3: mark current pixel shader as part of the toggle group
 	// Numpad 4: previous vertex shader
 	// Numpad 5: next vertex shader
 	// Numpad 6: mark current vertex shader as part of the toggle group
-	// CAPS_LOCK: toggle the shaders currently in the toggle group
 	if(runtime->is_key_pressed(VK_NUMPAD1))
 	{
 		g_pixelShaderManager.huntPreviousShader();
@@ -338,31 +404,155 @@ static void onReshadePresent(effect_runtime* runtime)
 	{
 		g_vertexShaderManager.toggleMarkOnHuntedShader();
 	}
+}
 
-	if(runtime->is_key_pressed(VK_CAPITAL))
+
+void endKeyBindingCapturing(bool acceptCollectedBinding, ToggleGroup& groupEditing)
+{
+	if (acceptCollectedBinding && g_actionKeyBindingEditing >= 0 && g_keyCollector.isValid())
 	{
-		g_vertexShaderManager.toggleHideMarkedShaders();
-		g_pixelShaderManager.toggleHideMarkedShaders();
+		groupEditing.setToggleKey(g_keyCollector);
 	}
+	g_actionKeyBindingEditing = -1;
+	g_keyCollector.clear();
+}
+
+
+void startKeyBindingCapturing(int groupNumber, ToggleGroup& groupEditing)
+{
+	if (g_actionKeyBindingEditing == groupNumber)
+	{
+		return;
+	}
+	if (g_actionKeyBindingEditing >= 0)
+	{
+		endKeyBindingCapturing(false, groupEditing);
+	}
+	g_actionKeyBindingEditing = groupNumber;
 }
 
 
 static void displaySettings(reshade::api::effect_runtime *runtime)
 {
-	ImGui::Checkbox("Show OSD Info", &g_osdInfoVisible);
-	if(ImGui::Checkbox("Enable shader hunting mode", &g_shaderHuntingModeActive))
+	if (g_actionKeyBindingEditing >= 0)
 	{
-		g_pixelShaderManager.toggleHuntingMode();
-		g_vertexShaderManager.toggleHuntingMode();
+		// a keybinding is being edited. Read current pressed keys into the collector, cumulatively;
+		g_keyCollector.collectKeysPressed(runtime);
+	}
+
+	ImGui::AlignTextToFramePadding();
+	ImGui::Text("List of Toggle Groups ");
+	ImGui::SameLine();
+	if(ImGui::Button(" New "))
+	{
+		addDefaultGroup();
+	}
+	ImGui::Separator();
+
+	int groupCounter = 1;
+	std::vector<ToggleGroup> toRemove;
+	for(auto& group : g_toggleGroups)
+	{
+		ImGui::PushID(groupCounter);
+		ImGui::AlignTextToFramePadding();
+		if(ImGui::Button("X"))
+		{
+			toRemove.push_back(group);
+		}
+		ImGui::SameLine();
+		ImGui::Text(" %d ", groupCounter);
+		ImGui::SameLine();
+		if(ImGui::Button("Edit"))
+		{
+			group.setEditing(true);
+		}
+
+		ImGui::SameLine();
+		if(ImGui::Button("Change shaders"))
+		{
+			// set group in the hunting mode.
+		}
+		ImGui::SameLine();
+		ImGui::Text(" %s (%s)", group.getName().c_str() , group.getToggleKeyAsString().c_str());
+		if(group.isEditing())
+		{
+			ImGui::Separator();
+			ImGui::Text("Edit group %d", groupCounter);
+
+			// Name of group
+			char tmpBuffer[150];
+			const string& name = group.getName();
+			strncpy_s(tmpBuffer, 150, name.c_str(), name.size());
+			ImGui::PushItemWidth(ImGui::GetWindowWidth() * 0.7f);
+				ImGui::AlignTextToFramePadding();
+				ImGui::Text("Name");
+				ImGui::SameLine(ImGui::GetWindowWidth() * 0.2f);
+				ImGui::InputText("##Name", tmpBuffer, 149);
+				group.setName(tmpBuffer);
+			ImGui::PopItemWidth();
+
+			// Key binding of group
+			bool isKeyEditing = false;
+			ImGui::PushItemWidth(ImGui::GetWindowWidth() * 0.5f);
+				ImGui::AlignTextToFramePadding();
+				ImGui::Text("Key shortcut");
+				ImGui::SameLine(ImGui::GetWindowWidth() * 0.2f);
+				string textBoxContents = (g_actionKeyBindingEditing == groupCounter) ? g_keyCollector.getKeyAsString() : group.getToggleKeyAsString();	// The 'press a key' is inside keycollector
+				string toggleKeyName = group.getToggleKeyAsString();
+				ImGui::InputText("##Key shortcut", (char*)textBoxContents.c_str(), textBoxContents.size(), ImGuiInputTextFlags_ReadOnly);
+				if(ImGui::IsItemClicked())
+				{
+					startKeyBindingCapturing(groupCounter, group);
+				}
+				if(g_actionKeyBindingEditing==groupCounter)
+				{
+					isKeyEditing = true;
+					ImGui::SameLine();
+					if (ImGui::Button("OK"))
+					{
+						endKeyBindingCapturing(true, group);
+					}
+					ImGui::SameLine();
+					if (ImGui::Button("Cancel"))
+					{
+						endKeyBindingCapturing(false, group);
+					}
+				}
+			ImGui::PopItemWidth();
+
+			if(!isKeyEditing)
+			{
+				if(ImGui::Button("OK"))
+				{
+					group.setEditing(false);
+					g_actionKeyBindingEditing = -1;
+					g_keyCollector.clear();
+				}
+			}
+			ImGui::Separator();
+		}
+				
+		ImGui::PopID();
+		groupCounter++;
+	}
+
+	ImGui::Separator();
+	if(g_toggleGroups.size()>0)
+	{
+		if(ImGui::Button("Save all Toggle Groups"))
+		{
+			saveHashFile();
+		}
+	}
+
+
+	if(0)
+	{
 		if(g_activeCollectorFrameCounter<=0 && (g_pixelShaderManager.isInHuntingMode() || g_vertexShaderManager.isInHuntingMode()))
 		{
 			// set the counter, so it'll run down to 0 before hunting can start.
 			g_activeCollectorFrameCounter = FRAMECOUNT_COLLECTION_PHASE;
 		}
-	}
-	if(ImGui::Button("Save toggle group"))
-	{
-		saveHashFile();
 	}
 }
 

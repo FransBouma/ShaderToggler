@@ -162,14 +162,18 @@
   <ItemGroup>
     <ClInclude Include="CDataFile.h" />
     <ClInclude Include="crc32_hash.hpp" />
+    <ClInclude Include="KeyData.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="ShaderManager.h" />
     <ClInclude Include="stdafx.h" />
+    <ClInclude Include="ToggleGroup.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CDataFile.cpp" />
+    <ClCompile Include="KeyData.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="ShaderManager.cpp" />
+    <ClCompile Include="ToggleGroup.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ShaderToggler.rc" />

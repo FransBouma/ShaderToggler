@@ -39,6 +39,7 @@
 #include <unordered_set>
 
 #include "CDataFile.h"
+#include "ToggleGroup.h"
 
 
 namespace ShaderToggler
@@ -50,14 +51,33 @@ namespace ShaderToggler
 
 		void addHashHandlePair(uint32_t shaderHash, uint64_t pipelineHandle);
 		void removeHandle(uint64_t handle);
-		void toggleHuntingMode();
+		/// <summary>
+		/// Switches on the hunting mode for the shader manager. It will copy the passed in hashes to the set of marked hashes
+		/// </summary>
+		/// <param name="currentMarkedHashes"></param>
+		void startHuntingMode(const std::unordered_set<uint32_t>& currentMarkedHashes);
+		/// <summary>
+		/// Switches off the hunting mode for the shader manager. If cancel is false, it'll copy the set of marked shader hashes to the passed in set.
+		/// </summary>
+		/// <param name="cancel">if true, it'll simply ignore the marked set of hashes. If false it'll copy the marked set of hashes to the passed in set</param>
+		/// <param name="markedHashesDestination">if cancel is false, it'll copy all hashes marked to this set, after clearing it first. </param>
+		void stopHuntingMode(bool cancel, std::unordered_set<uint32_t>& markedHashesDestination);
 		void huntNextShader();
 		void huntPreviousShader();
-		bool isBlockedShader(uint64_t handle);
+		/// <summary>
+		/// Returns true if the shader hash passed in is the currently hunted shader or it's part of the marked shader hashes
+		/// </summary>
+		/// <param name="shaderHash"></param>
+		/// <returns></returns>
+		bool isBlockedShader(uint32_t shaderHash);
+		/// <summary>
+		/// Returns the shader hash for the passed in pipeline handle, if found. 0 otherwise.
+		/// </summary>
+		/// <param name="handle"></param>
+		/// <returns></returns>
+		uint32_t getShaderHash(uint64_t handle);
 		void addActivePipelineHandle(uint64_t handle);
 		void toggleMarkOnHuntedShader();
-		void saveMarkedHashes(CDataFile& iniFile, std::string category);
-		void loadMarkedHashes(CDataFile& iniFile, std::string category);
 
 		uint32_t getPipelineCount() {return _handleToShaderHash.size();}
 		uint32_t getShaderCount() { return _shaderHashes.size();}
@@ -80,13 +100,12 @@ namespace ShaderToggler
 		}
 		
 	private:
-		uint32_t getShaderHash(uint64_t handle);
 		void setActiveHuntedShaderHandle();
 		
 		std::unordered_set<uint32_t> _shaderHashes;				// all shader hashes added through init pipeline
 		std::map<uint64_t, uint32_t> _handleToShaderHash;		// pipeline handle per shader hash. Handle is removed when a pipeline is destroyed.
 		std::unordered_set<uint32_t> _collectedActiveShaderHashes;	// shader hashes bound to pipeline handles which were collected during the collection phase after hunting was enabled, which are the pipeline handles active during the last X frames
-		std::unordered_set<uint32_t> _markedShaderHashes;		// the hashes for shaders which are currently marked. 
+		std::unordered_set<uint32_t> _markedShaderHashes;		// the hashes for shaders which are currently marked.
 
 		bool _isInHuntingMode = false;
 		int _activeHuntedShaderIndex = -1;
