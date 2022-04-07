@@ -1,5 +1,5 @@
 # ShaderToggler
-Reshade 5+ addin to toggle shaders on/off in groups based on a key press. It allows you to configure these groups from within the addin as well.
+Reshade 5.1+ addin to toggle shaders on/off in groups based on a key press. It allows you to configure these groups from within the addin as well.
 
 ## How to use
 Place the `ShaderToggler.addon` in the same folder as Reshade 5.0.2+. Be sure to use the Reshade version which supports Addons 

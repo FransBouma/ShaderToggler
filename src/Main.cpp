@@ -664,9 +664,12 @@ static void displaySettings(reshade::api::effect_runtime *runtime)
 		}
 		if(toRemove.size()>0)
 		{
-			// switch off keybinding editing, if in progress
+			// switch off keybinding editing or shader editing, if in progress
 			g_toggleGroupIdKeyBindingEditing = -1;
 			g_keyCollector.clear();
+			g_toggleGroupIdShaderEditing = -1;
+			g_pixelShaderManager.stopHuntingMode();
+			g_vertexShaderManager.stopHuntingMode();
 		}
 		for(const auto& group : toRemove)
 		{
