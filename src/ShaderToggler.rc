@@ -79,17 +79,17 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Frans 'Otis_Inf' Bouma"
             VALUE "FileDescription", "ShaderToggler Addon for ReShade 5+"
-            VALUE "FileVersion", "1.0.0.1"
+            VALUE "FileVersion", "1.0.0"
             VALUE "InternalName", "ShaderTo.dll"
             VALUE "LegalCopyright", "Copyright (C) 2022 Frans Bouma"
             VALUE "OriginalFilename", "ShaderTo.dll"
             VALUE "ProductName", "Shader Toggler addon for ReShade 5+"
-            VALUE "ProductVersion", "1.0.0.1"
+            VALUE "ProductVersion", "1.0.0"
         END
     END
     BLOCK "VarFileInfo"
     BEGIN
-        VALUE "Translation", 0x2000, 1200
+        VALUE "Translation", 0x400, 1200
     END
 END
 
