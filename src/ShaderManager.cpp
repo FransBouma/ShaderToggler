@@ -31,7 +31,6 @@
 /////////////////////////////////////////////////////////////////////////
 
 #include "ShaderManager.h"
-#include "CDataFile.h"
 
 using namespace reshade::api;
 
@@ -67,7 +66,7 @@ namespace ShaderToggler
 	}
 
 
-	void ShaderManager::startHuntingMode(const std::unordered_set<uint32_t>& currentMarkedHashes)
+	void ShaderManager::startHuntingMode(const std::unordered_set<uint32_t> currentMarkedHashes)
 	{
 		// copy the currently marked hashes (from the active group) to the set of marked hashes.
 		{
@@ -90,20 +89,11 @@ namespace ShaderToggler
 	}
 
 
-	void ShaderManager::stopHuntingMode(bool cancel, std::unordered_set<uint32_t>& markedHashesDestination)
+	void ShaderManager::stopHuntingMode()
 	{
 		_isInHuntingMode = false;
 		_activeHuntedShaderIndex = -1;
 		_activeHuntedShaderHash = 0;
-		if(!cancel)
-		{
-			std::shared_lock lock(_markedShaderHashMutex);
-			markedHashesDestination.clear();
-			for(const auto hash: _markedShaderHashes)
-			{
-				markedHashesDestination.emplace(hash);
-			}
-		}
 		{
 			std::unique_lock lock(_markedShaderHashMutex);
 			_markedShaderHashes.clear();

@@ -37,6 +37,9 @@
 
 namespace ShaderToggler
 {
+	/// <summary>
+	/// Class which is used to contain keybinding data
+	/// </summary>
 	class KeyData
 	{
 	public:
@@ -47,11 +50,32 @@ namespace ShaderToggler
 		/// </summary>
 		/// <param name="newKeyValue"></param>
 		void setKeyFromIniFile(uint32_t newKeyValue);
+		/// <summary>
+		/// Sets the passed in vk keycode as the key to use for 
+		/// </summary>
+		/// <param name="newKeyValue"></param>
+		/// <param name="shiftRequired"></param>
+		/// <param name="altRequired"></param>
+		/// <param name="ctrlRequired"></param>
 		void setKey(uint8_t newKeyValue, bool shiftRequired=false, bool altRequired=false, bool ctrlRequired=false);
 		uint32_t getKeyForIniFile() const;
 		void clear();
-		void collectKeysPressed(const reshade::api::effect_runtime* runtime);;
+		/// <summary>
+		/// Used for when the instance of this class is used to collect temporary keybinding data for editing
+		/// </summary>
+		/// <param name="runtime"></param>
+		void collectKeysPressed(const reshade::api::effect_runtime* runtime);
+		/// <summary>
+		/// Returns true if the keyboard shortcut defined by this instance is currently pressed down
+		/// </summary>
+		/// <param name="runtime"></param>
+		/// <returns></returns>
+		bool isKeyPressed(const reshade::api::effect_runtime* runtime);
 
+		/// <summary>
+		/// Returns a usable description for the keyboard shortcut, or 'Press a key' if undefined/empty
+		/// </summary>
+		/// <returns></returns>
 		std::string getKeyAsString() { return _keyAsString;}
 		uint8_t getKeyCode() { return _keyCode;}
 		bool isValid() { return _keyCode > 0; }

@@ -44,6 +44,9 @@
 
 namespace ShaderToggler
 {
+	/// <summary>
+	/// Class which manages a set of shaders for a given type (pixel, vertex...)
+	/// </summary>
 	class ShaderManager
 	{
 	public:
@@ -52,16 +55,12 @@ namespace ShaderToggler
 		void addHashHandlePair(uint32_t shaderHash, uint64_t pipelineHandle);
 		void removeHandle(uint64_t handle);
 		/// <summary>
-		/// Switches on the hunting mode for the shader manager. It will copy the passed in hashes to the set of marked hashes
+		/// Switches on the hunting mode for the shader manager. It will copy the passed in hashes to the set of marked hashes. Hunting mode is the mode
+		///	where the user can step through collected active shaders to mark them for assignment to the current edited group.
 		/// </summary>
 		/// <param name="currentMarkedHashes"></param>
-		void startHuntingMode(const std::unordered_set<uint32_t>& currentMarkedHashes);
-		/// <summary>
-		/// Switches off the hunting mode for the shader manager. If cancel is false, it'll copy the set of marked shader hashes to the passed in set.
-		/// </summary>
-		/// <param name="cancel">if true, it'll simply ignore the marked set of hashes. If false it'll copy the marked set of hashes to the passed in set</param>
-		/// <param name="markedHashesDestination">if cancel is false, it'll copy all hashes marked to this set, after clearing it first. </param>
-		void stopHuntingMode(bool cancel, std::unordered_set<uint32_t>& markedHashesDestination);
+		void startHuntingMode(const std::unordered_set<uint32_t> currentMarkedHashes);
+		void stopHuntingMode();
 		void huntNextShader();
 		void huntPreviousShader();
 		/// <summary>
@@ -91,6 +90,18 @@ namespace ShaderToggler
 		{
 			std::shared_lock lock(_markedShaderHashMutex);
 			return _markedShaderHashes.count(_activeHuntedShaderHash)==1;
+		}
+
+		std::unordered_set<uint32_t> getMarkedShaderHashes()
+		{
+			std::shared_lock lock(_markedShaderHashMutex);
+			return _markedShaderHashes;
+		}
+
+		uint32_t getMarkedShaderCount()
+		{
+			std::shared_lock lock(_markedShaderHashMutex);
+			return _markedShaderHashes.size();
 		}
 
 		bool isKnownHandle(uint64_t pipelineHandle)

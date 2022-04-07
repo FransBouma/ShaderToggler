@@ -36,9 +36,18 @@
 
 namespace ShaderToggler
 {
-	ToggleGroup::ToggleGroup(std::string name): _isActive(false), _isEditing(false)
+	ToggleGroup::ToggleGroup(std::string name, int id): _id(id), _isActive(false), _isEditing(false)
 	{
 		_name = name.size() > 0 ? name : "Default";
+	}
+
+
+	int ToggleGroup::getNewGroupId()
+	{
+		static atomic_int s_groupId = 0;
+
+		++s_groupId;
+		return s_groupId;
 	}
 
 
@@ -57,15 +66,18 @@ namespace ShaderToggler
 	}
 
 
-	void ToggleGroup::collectHashes(std::unordered_set<uint32_t>& vertexShaderHashes, std::unordered_set<uint32_t>& pixelShaderHashes)
+	void ToggleGroup::storeCollectedHashes(const std::unordered_set<uint32_t> pixelShaderHashes, const std::unordered_set<uint32_t> vertexShaderHashes)
 	{
-		for(const auto hash : _vertexShaderHashes)
+		_vertexShaderHashes.clear();
+		_pixelShaderHashes.clear();
+
+		for(const auto hash : vertexShaderHashes)
 		{
-			vertexShaderHashes.emplace(hash);
+			_vertexShaderHashes.emplace(hash);
 		}
-		for(const auto hash : _pixelShaderHashes)
+		for(const auto hash : pixelShaderHashes)
 		{
-			pixelShaderHashes.emplace(hash);
+			_pixelShaderHashes.emplace(hash);
 		}
 	}
 
@@ -79,6 +91,13 @@ namespace ShaderToggler
 	bool ToggleGroup::isBlockedPixelShader(uint32_t shaderHash)
 	{
 		return _isActive && (_pixelShaderHashes.count(shaderHash)==1);
+	}
+
+
+	void ToggleGroup::clearHashes()
+	{
+		_pixelShaderHashes.clear();
+		_vertexShaderHashes.clear();
 	}
 
 
@@ -176,7 +195,7 @@ namespace ShaderToggler
 			_name = "Default";
 		}
 		const uint32_t toggleKeyValue = iniFile.GetUInt("ToggleKey", sectionRoot);
-		if(toggleKeyValue == INT_MIN)
+		if(toggleKeyValue == UINT_MAX)
 		{
 			_keyData.setKey(VK_CAPITAL, false, false, false);
 		}
@@ -185,4 +204,5 @@ namespace ShaderToggler
 			_keyData.setKeyFromIniFile(toggleKeyValue);
 		}
 	}
+
 }

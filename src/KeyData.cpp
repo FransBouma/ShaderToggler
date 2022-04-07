@@ -48,6 +48,7 @@ namespace ShaderToggler
 		_altRequired = ((newKeyValue >> 16) & 0xFF) == 0x01;
 		_ctrlRequired = ((newKeyValue >> 8) & 0xFF) == 0x01;
 		_shiftRequired = (newKeyValue & 0xFF) == 0x01;
+		setKeyAsString();
 	}
 
 	void KeyData::setKey(uint8_t newKeyValue, bool shiftRequired, bool altRequired, bool ctrlRequired)
@@ -102,6 +103,25 @@ namespace ShaderToggler
 			}
 		}
 		setKeyAsString();
+	}
+
+
+	bool KeyData::isKeyPressed(const reshade::api::effect_runtime* runtime)
+	{
+		bool toReturn = runtime->is_key_pressed(_keyCode);
+		if(_altRequired)
+		{
+			toReturn &= runtime->is_key_down(VK_MENU);
+		}
+		if(_shiftRequired)
+		{
+			toReturn &= runtime->is_key_down(VK_SHIFT);
+		}
+		if(_ctrlRequired)
+		{
+			toReturn &= runtime->is_key_down(VK_CONTROL);
+		}
+		return toReturn;
 	}
 
 

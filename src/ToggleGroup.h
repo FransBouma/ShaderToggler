@@ -42,7 +42,9 @@ namespace ShaderToggler
 	class ToggleGroup
 	{
 	public:
-		ToggleGroup(std::string name);
+		ToggleGroup(std::string name, int Id);
+
+		static int getNewGroupId();
 
 		void setToggleKey(uint8_t newKeyValue, bool shiftRequired, bool altRequired, bool ctrlRequired);
 		void setToggleKey(KeyData newData);
@@ -59,31 +61,37 @@ namespace ShaderToggler
 		/// <param name="iniFile"></param>
 		/// <param name="groupCounter">if -1, the ini file is in the pre-1.0 format</param>
 		void loadState(CDataFile& iniFile, int groupCounter);
-
-		/// <summary>
-		/// Copies the shader hashes contained in this group to the two passed in set objects. 
-		/// </summary>
-		/// <param name="vertexShaderHashes"></param>
-		/// <param name="pixelShaderHashes"></param>
-		///	<remarks>This method won't clear the sets passed in.</remarks>
-		void collectHashes(std::unordered_set<uint32_t>& vertexShaderHashes, std::unordered_set<uint32_t>& pixelShaderHashes);
+		void storeCollectedHashes(const std::unordered_set<uint32_t> pixelShaderHashes, const std::unordered_set<uint32_t> vertexShaderHashes);
 		bool isBlockedVertexShader(uint32_t shaderHash);
 		bool isBlockedPixelShader(uint32_t shaderHash);
+		void clearHashes();
 
-		std::string getToggleKeyAsString() { return _keyData.getKeyAsString();};
-		uint8_t getToggleKey() { return _keyData.getKeyCode();}
-		std::string getName() { return _name;}
 		void toggleActive() { _isActive = !_isActive;}
 		void setEditing(bool isEditing) { _isEditing = isEditing;}
+
+		std::string getToggleKeyAsString() { return _keyData.getKeyAsString();}
+		uint8_t getToggleKey() { return _keyData.getKeyCode();}
+		std::string getName() { return _name;}
 		bool isActive() { return _isActive;}
 		bool isEditing() { return _isEditing;}
+		bool isEmpty() const { return _vertexShaderHashes.size() <=0 && _pixelShaderHashes.size() <=0;}
+		int getId() const { return _id; }
+		std::unordered_set<uint32_t> getPixelShaderHashes() const { return _pixelShaderHashes;}
+		std::unordered_set<uint32_t> getVertexShaderHashes() const { return _vertexShaderHashes;}
+		bool isToggleKeyPressed(const reshade::api::effect_runtime* runtime) { return _keyData.isKeyPressed(runtime);}
+		
+		bool operator==(const ToggleGroup& rhs)
+		{
+		    return getId() == rhs.getId();
+		}
 
 	private:
+		int _id;
 		std::string	_name;
 		KeyData _keyData;
 		std::unordered_set<uint32_t> _vertexShaderHashes;
 		std::unordered_set<uint32_t> _pixelShaderHashes;
 		bool _isActive;			// true means the group is actively toggled (so the hashes have to be hidden.
-		bool _isEditing;		// true means the group is actively edited and the shaders are modified.
+		bool _isEditing;		// true means the group is actively edited (name, key)
 	};
 }
