@@ -5,7 +5,12 @@ This addon is meant to toggle a game's shaders on/off, not reshade effects.
 It's mainly for 64bit reshade. There's a 32bit version in the releases, but it's not actively maintained/tested. 
 
 ## How to use
-Place the `ShaderToggler.addon` in the same folder as the Reshade 5.1+ dll, which is usually the folder with the game exe.
+Place the `ShaderToggler.addon` in the same folder as where the game exe is located. This is in most cases the same folder as where the Reshade 5.1+ dll
+is located. Only for games which use Vulkan, the Reshade dll is likely elsewhere. For Unreal Engine powered games there might be two
+game exe's: one in the game's installation folder, and one in a folder deeper into that folder, e.g. 
+`GameName\Binaries\Win64\GameName-Win64-Shipping.exe`; the shader toggler addon has to be in that second folder, in our example:
+`GameName\Binaries\Win64`. Reshade has to be placed in that folder as well.
+
 Be sure to use the Reshade version which supports Addons (so the unsigned version). When you start your game, the `Addons` tab in 
 the Reshade gui should show the ShaderToggler information and controls.
 
