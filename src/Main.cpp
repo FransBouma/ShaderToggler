@@ -199,6 +199,15 @@ static void onDestroyPipeline(device *device, pipeline pipelineHandle)
 }
 
 
+static void displayIsPartOfToggleGroup()
+{
+	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f));
+	ImGui::SameLine();
+	ImGui::Text(" Shader is part of this toggle group.");
+	ImGui::PopStyleColor();
+}
+
+
 static void onReshadeOverlay(reshade::api::effect_runtime *runtime)
 {
 	if(g_toggleGroupIdShaderEditing>=0)
@@ -237,14 +246,20 @@ static void onReshadeOverlay(reshade::api::effect_runtime *runtime)
 			if(g_vertexShaderManager.isInHuntingMode())
 			{
 				ImGui::Text("# of vertex shaders active: %d. # of vertex shaders in group: %d", g_vertexShaderManager.getAmountShaderHashesCollected(), g_vertexShaderManager.getMarkedShaderCount());
-				const auto isMarkedText = g_vertexShaderManager.isHuntedShaderMarked() ? " Shader is part of this toggle group." : "";
-				ImGui::Text("Current selected vertex shader: %d / %d. %s", g_vertexShaderManager.getActiveHuntedShaderIndex(), g_vertexShaderManager.getAmountShaderHashesCollected(), isMarkedText);
+				ImGui::Text("Current selected vertex shader: %d / %d.", g_vertexShaderManager.getActiveHuntedShaderIndex(), g_vertexShaderManager.getAmountShaderHashesCollected());
+				if(g_vertexShaderManager.isHuntedShaderMarked())
+				{
+					displayIsPartOfToggleGroup();
+				}
 			}
 			if(g_pixelShaderManager.isInHuntingMode())
 			{
 				ImGui::Text("# of pixel shaders active: %d. # of pixel shaders in group: %d", g_pixelShaderManager.getAmountShaderHashesCollected(), g_pixelShaderManager.getMarkedShaderCount());
-				const auto isMarkedText = g_pixelShaderManager.isHuntedShaderMarked() ? " Shader is part of this toggle group." : "";
-				ImGui::Text("Current selected pixel shader: %d / %d. %s", g_pixelShaderManager.getActiveHuntedShaderIndex(), g_pixelShaderManager.getAmountShaderHashesCollected(), isMarkedText);
+				ImGui::Text("Current selected pixel shader: %d / %d", g_pixelShaderManager.getActiveHuntedShaderIndex(), g_pixelShaderManager.getAmountShaderHashesCollected());
+				if(g_pixelShaderManager.isHuntedShaderMarked())
+				{
+					displayIsPartOfToggleGroup();
+				}
 			}
 		}
 		ImGui::End();
