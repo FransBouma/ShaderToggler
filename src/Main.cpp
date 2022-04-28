@@ -45,7 +45,7 @@ using namespace reshade::api;
 using namespace ShaderToggler;
 
 extern "C" __declspec(dllexport) const char *NAME = "Shader Toggler";
-extern "C" __declspec(dllexport) const char *DESCRIPTION = "Add-on which allows you to define groups of shaders to toggle on/off with one key press.";
+extern "C" __declspec(dllexport) const char *DESCRIPTION = "Add-on which allows you to define groups of game shaders to toggle on/off with one key press.";
 
 struct __declspec(uuid("038B03AA-4C75-443B-A695-752D80797037")) CommandListDataContainer {
     uint64_t activePixelShaderPipeline;
@@ -237,13 +237,13 @@ static void onReshadeOverlay(reshade::api::effect_runtime *runtime)
 			if(g_vertexShaderManager.isInHuntingMode())
 			{
 				ImGui::Text("# of vertex shaders active: %d. # of vertex shaders in group: %d", g_vertexShaderManager.getAmountShaderHashesCollected(), g_vertexShaderManager.getMarkedShaderCount());
-				const auto isMarkedText = g_vertexShaderManager.isHuntedShaderMarked() ? " Shader is part of toggle group." : "";
+				const auto isMarkedText = g_vertexShaderManager.isHuntedShaderMarked() ? " Shader is part of this toggle group." : "";
 				ImGui::Text("Current selected vertex shader: %d / %d. %s", g_vertexShaderManager.getActiveHuntedShaderIndex(), g_vertexShaderManager.getAmountShaderHashesCollected(), isMarkedText);
 			}
 			if(g_pixelShaderManager.isInHuntingMode())
 			{
 				ImGui::Text("# of pixel shaders active: %d. # of pixel shaders in group: %d", g_pixelShaderManager.getAmountShaderHashesCollected(), g_pixelShaderManager.getMarkedShaderCount());
-				const auto isMarkedText = g_pixelShaderManager.isHuntedShaderMarked() ? " Shader is part of toggle group." : "";
+				const auto isMarkedText = g_pixelShaderManager.isHuntedShaderMarked() ? " Shader is part of this toggle group." : "";
 				ImGui::Text("Current selected pixel shader: %d / %d. %s", g_pixelShaderManager.getActiveHuntedShaderIndex(), g_pixelShaderManager.getAmountShaderHashesCollected(), isMarkedText);
 			}
 		}
@@ -391,7 +391,8 @@ static void onReshadePresent(effect_runtime* runtime)
 		}
 	}
 
-	// hardcoded hunting keys. 
+	// hardcoded hunting keys.
+	// If Ctrl is pressed too, it'll step to the next marked shader (if any)
 	// Numpad 1: previous pixel shader
 	// Numpad 2: next pixel shader
 	// Numpad 3: mark current pixel shader as part of the toggle group
@@ -400,11 +401,11 @@ static void onReshadePresent(effect_runtime* runtime)
 	// Numpad 6: mark current vertex shader as part of the toggle group
 	if(runtime->is_key_pressed(VK_NUMPAD1))
 	{
-		g_pixelShaderManager.huntPreviousShader();
+		g_pixelShaderManager.huntPreviousShader(runtime->is_key_down(VK_CONTROL));
 	}
 	if(runtime->is_key_pressed(VK_NUMPAD2))
 	{
-		g_pixelShaderManager.huntNextShader();
+		g_pixelShaderManager.huntNextShader(runtime->is_key_down(VK_CONTROL));
 	}
 	if(runtime->is_key_pressed(VK_NUMPAD3))
 	{
@@ -412,11 +413,11 @@ static void onReshadePresent(effect_runtime* runtime)
 	}
 	if(runtime->is_key_pressed(VK_NUMPAD4))
 	{
-		g_vertexShaderManager.huntPreviousShader();
+		g_vertexShaderManager.huntPreviousShader(runtime->is_key_down(VK_CONTROL));
 	}
 	if(runtime->is_key_pressed(VK_NUMPAD5))
 	{
-		g_vertexShaderManager.huntNextShader();
+		g_vertexShaderManager.huntNextShader(runtime->is_key_down(VK_CONTROL));
 	}
 	if(runtime->is_key_pressed(VK_NUMPAD6))
 	{
@@ -528,8 +529,10 @@ static void displaySettings(reshade::api::effect_runtime *runtime)
 		ImGui::TextUnformatted("The Shader Toggler allows you to create one or more groups with shaders to toggle on/off. You can assign a keyboard shortcut (including using keys like Shift, Alt and Control) to each group, including a handy name. Each group can have one or more vertex or pixel shaders assigned to it. When you press the assigned keyboard shortcut, any draw calls using these shaders will be disabled, effectively hiding the elements in the 3D scene.");
 		ImGui::TextUnformatted("\nThe following (hardcoded) keyboard shortcuts are used when you click a group's 'Change Shaders' button:");
 		ImGui::TextUnformatted("* Numpad 1 and Numpad 2: previous/next pixel shader");
+		ImGui::TextUnformatted("* Ctrl + Numpad 1 and Ctrl + Numpad 2: previous/next marked pixel shader in the group");
 		ImGui::TextUnformatted("* Numpad 3: mark/unmark the current pixel shader as being part of the group");
 		ImGui::TextUnformatted("* Numpad 4 and Numpad 5: previous/next vertex shader");
+		ImGui::TextUnformatted("* Ctrl + Numpad 4 and Ctrl + Numpad 5: previous/next marked vertex shader in the group");
 		ImGui::TextUnformatted("* Numpad 6: mark/unmark the current vertex shader as being part of the group");
 		ImGui::TextUnformatted("\nWhen you step through the shaders, the current shader is disabled in the 3D scene so you can see if that's the shader you were looking for.");
 		ImGui::TextUnformatted("When you're done, make sure you click 'Save all toggle groups' to preserve the groups you defined so next time you start your game they're loaded in and you can use them right away.");

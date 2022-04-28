@@ -116,7 +116,7 @@ namespace ShaderToggler
 	}
 
 
-	void ShaderManager::huntNextShader()
+	void ShaderManager::huntNextShader(bool ctrlPressed)
 	{
 		if(!_isInHuntingMode)
 		{
@@ -126,7 +126,48 @@ namespace ShaderToggler
 		{
 			return;
 		}
-		if(_activeHuntedShaderIndex<_collectedActiveShaderHashes.size()-1)
+		if(ctrlPressed)
+		{
+			if(_markedShaderHashes.size()==0 || (_markedShaderHashes.size() == 1 && _markedShaderHashes.count(_activeHuntedShaderHash)==1))
+			{
+				// optimization: if the current active shader is part of marked shader hashes and there is
+				// just 1 marked, then we can also stop. We then don't need to do anything so we can return
+				// also if there are no marked shaders, we won't find a next, so return now too.
+				return;
+			}
+
+			// we have marked shaders, find the next one in collected active shader hashes that's part of this set.
+			auto it = _collectedActiveShaderHashes.begin();
+			int index = _activeHuntedShaderIndex + 1;
+			std::advance(it, index);
+			bool foundHash = false;
+			uint32_t hash = 0;
+			while(index!=_activeHuntedShaderIndex)
+			{
+				if(it == _collectedActiveShaderHashes.end())
+				{
+					it = _collectedActiveShaderHashes.begin();
+					index = 0;
+				}
+				hash = *it;
+				if(_markedShaderHashes.count(hash) == 1)
+				{
+					// found one
+					foundHash = true;
+					break;
+				}
+				++it;
+				index++;
+			}
+			if(foundHash)
+			{
+				_activeHuntedShaderIndex = index;
+				_activeHuntedShaderHash = hash;
+			}
+			// always done
+			return;
+		}
+		if(_activeHuntedShaderIndex < _collectedActiveShaderHashes.size() - 1)
 		{
 			_activeHuntedShaderIndex++;
 		}
@@ -138,7 +179,7 @@ namespace ShaderToggler
 	}
 
 
-	void ShaderManager::huntPreviousShader()
+	void ShaderManager::huntPreviousShader(bool ctrlPressed)
 	{
 		if(!_isInHuntingMode)
 		{
@@ -148,10 +189,51 @@ namespace ShaderToggler
 		{
 			return;
 		}
-
-		if(_activeHuntedShaderIndex<=0)
+		if(ctrlPressed)
 		{
-			_activeHuntedShaderIndex = _collectedActiveShaderHashes.size()-1;
+			if(_markedShaderHashes.size() == 0 || (_markedShaderHashes.size() == 1 && _markedShaderHashes.count(_activeHuntedShaderHash) == 1))
+			{
+				// optimization: if the current active shader is part of marked shader hashes and there is
+				// just 1 marked, then we can also stop. We then don't need to do anything so we can return
+				// also if there are no marked shaders, we won't find a next, so return now too.
+				return;
+			}
+			// we have marked shaders, find the next one in collected active shader hashes that's part of this set.
+			auto it = _collectedActiveShaderHashes.begin();
+			int index = _activeHuntedShaderIndex - 1;
+			std::advance(it, index);
+			bool foundHash = false;
+			uint32_t hash = 0;
+			while(index != _activeHuntedShaderIndex)
+			{
+				if(it == _collectedActiveShaderHashes.begin())
+				{
+					it = _collectedActiveShaderHashes.end();
+					--it;
+					index = _collectedActiveShaderHashes.size() - 1;
+				}
+				hash = *it;
+				if(_markedShaderHashes.count(hash) == 1)
+				{
+					// found one
+					foundHash = true;
+					break;
+				}
+				--it;
+				index--;
+			}
+			if(foundHash)
+			{
+				_activeHuntedShaderIndex = index;
+				_activeHuntedShaderHash = hash;
+			}
+			// always done
+			return;
+
+		}
+		if(_activeHuntedShaderIndex <= 0)
+		{
+			_activeHuntedShaderIndex = _collectedActiveShaderHashes.size() - 1;
 		}
 		else
 		{

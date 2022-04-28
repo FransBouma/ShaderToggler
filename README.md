@@ -38,8 +38,14 @@ To walk the available pixel shaders, use the `Numpad 1` and `Numpad 2` keys. If 
 currently 'active' is rendering these elements, so if you want to hide these elements, press `Numpad 3`. The shader is then 
 marked, and part of the toggle group. Press `Numpad 3` again to remove it from the group.
 
+To walk all shaders you already marked in the current group, you can hold down `Ctrl` and press `Numpad 1` and `Numpad 2` to quickly
+move back/forth through the shaders in a group, e.g. when you made a mistake and you want to unmark a shader. 
+
 To walk the available vertex shaders, instead use the `Numpad 4` and `Numpad 5` keys. To mark a vertex shader to be 
 part of the toggle group, press `Numpad 6`.
+
+Same for vertex shaders: to walk all shaders you already marked in the current group, you can hold down `Ctrl` and press `Numpad 4` and `Numpad 5` 
+to quickly move back/forth through the shaders in a group. 
 
 To test your current group, press the toggle key you assigned to the group. When you're done, click the 'Done' button in the 
 reshade overlay for the particular toggle group. 
