@@ -14,9 +14,7 @@ game exe's: one in the game's installation folder, and one in a folder deeper in
 Be sure to use the Reshade version which supports Addons (so the unsigned version). When you start your game, the `Addons` tab in 
 the Reshade gui should show the IGCS Connector information and controls. 
 
-To obtain the unsigned Reshade version, go to <https://reshade.me> and click on *Download*, then on the *Other builds* link. This will bring you to the 
-release post of the latest Reshade version. Download the addon supporting version at the bottom of the post, using the *ReShade with full add-on support* 
-link.
+To obtain the unsigned Reshade version, go to <https://reshade.me> and click on *Download*, then on the grey button to download the ReShade version with Add-on support. 
 
 To create a toggle for a set of shaders, open the reshade gui and go to the addon's tab -> Shader Toggler area. Then click 
 the `New` button to create a new *Toggle group*. By default the new toggle group has as name `Default` and as toggle key 
