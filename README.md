@@ -12,7 +12,7 @@ game exe's: one in the game's installation folder, and one in a folder deeper in
 `GameName\Binaries\Win64`. Reshade has to be placed in that folder as well.
 
 Be sure to use the Reshade version which supports Addons (so the unsigned version). When you start your game, the `Addons` tab in 
-the Reshade gui should show the IGCS Connector information and controls. 
+the Reshade gui should show the Shader Toggler information and controls. 
 
 To obtain the unsigned Reshade version, go to <https://reshade.me> and click on *Download*, then on the grey button to download the ReShade version with Add-on support. 
 
