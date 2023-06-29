@@ -61,9 +61,10 @@ namespace ShaderToggler
 		/// <param name="iniFile"></param>
 		/// <param name="groupCounter">if -1, the ini file is in the pre-1.0 format</param>
 		void loadState(CDataFile& iniFile, int groupCounter);
-		void storeCollectedHashes(const std::unordered_set<uint32_t> pixelShaderHashes, const std::unordered_set<uint32_t> vertexShaderHashes);
-		bool isBlockedVertexShader(uint32_t shaderHash);
+		void storeCollectedHashes(const std::unordered_set<uint32_t> pixelShaderHashes, const std::unordered_set<uint32_t> vertexShaderHashes, const std::unordered_set<uint32_t> computeShaderHashes);
 		bool isBlockedPixelShader(uint32_t shaderHash);
+		bool isBlockedVertexShader(uint32_t shaderHash);
+		bool isBlockedComputeShader(uint32_t shaderHash);
 		void clearHashes();
 
 		void toggleActive() { _isActive = !_isActive;}
@@ -74,10 +75,11 @@ namespace ShaderToggler
 		std::string getName() { return _name;}
 		bool isActive() { return _isActive;}
 		bool isEditing() { return _isEditing;}
-		bool isEmpty() const { return _vertexShaderHashes.size() <=0 && _pixelShaderHashes.size() <=0;}
+		bool isEmpty() const { return _vertexShaderHashes.size() <= 0 && _pixelShaderHashes.size() <= 0 && _computeShaderHashes.size() <= 0; }
 		int getId() const { return _id; }
 		std::unordered_set<uint32_t> getPixelShaderHashes() const { return _pixelShaderHashes;}
 		std::unordered_set<uint32_t> getVertexShaderHashes() const { return _vertexShaderHashes;}
+		std::unordered_set<uint32_t> getComputeShaderHashes() const { return _computeShaderHashes; }
 		bool isToggleKeyPressed(const reshade::api::effect_runtime* runtime) { return _keyData.isKeyPressed(runtime);}
 		
 		bool operator==(const ToggleGroup& rhs)
@@ -91,6 +93,7 @@ namespace ShaderToggler
 		KeyData _keyData;
 		std::unordered_set<uint32_t> _vertexShaderHashes;
 		std::unordered_set<uint32_t> _pixelShaderHashes;
+		std::unordered_set<uint32_t> _computeShaderHashes;
 		bool _isActive;			// true means the group is actively toggled (so the hashes have to be hidden.
 		bool _isEditing;		// true means the group is actively edited (name, key)
 	};

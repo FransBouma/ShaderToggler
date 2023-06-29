@@ -50,6 +50,7 @@ extern "C" __declspec(dllexport) const char *DESCRIPTION = "Add-on which allows 
 struct __declspec(uuid("038B03AA-4C75-443B-A695-752D80797037")) CommandListDataContainer {
     uint64_t activePixelShaderPipeline;
     uint64_t activeVertexShaderPipeline;
+	uint64_t activeComputeShaderPipeline;
 };
 
 #define FRAMECOUNT_COLLECTION_PHASE_DEFAULT 250;
@@ -57,6 +58,7 @@ struct __declspec(uuid("038B03AA-4C75-443B-A695-752D80797037")) CommandListDataC
 
 static ShaderToggler::ShaderManager g_pixelShaderManager;
 static ShaderToggler::ShaderManager g_vertexShaderManager;
+static ShaderToggler::ShaderManager g_computeShaderManager;
 static KeyData g_keyCollector;
 static atomic_uint32_t g_activeCollectorFrameCounter = 0;
 static std::vector<ToggleGroup> g_toggleGroups;
@@ -167,6 +169,7 @@ static void onResetCommandList(command_list *commandList)
 	CommandListDataContainer &commandListData = commandList->get_private_data<CommandListDataContainer>();
 	commandListData.activePixelShaderPipeline = -1;
 	commandListData.activeVertexShaderPipeline = -1;
+	commandListData.activeComputeShaderPipeline = -1;
 }
 
 
@@ -177,16 +180,15 @@ static void onInitPipeline(device *device, pipeline_layout, uint32_t subobjectCo
 	{
 		switch (subobjects[i].type)
 		{
-		case pipeline_subobject_type::vertex_shader:
-			{
+			case pipeline_subobject_type::vertex_shader:
 				g_vertexShaderManager.addHashHandlePair(calculateShaderHash(subobjects[i].data), pipelineHandle.handle);
-			}
-			break;
-		case pipeline_subobject_type::pixel_shader:
-			{
+				break;
+			case pipeline_subobject_type::pixel_shader:
 				g_pixelShaderManager.addHashHandlePair(calculateShaderHash(subobjects[i].data), pipelineHandle.handle);
-			}
-			break;
+				break;
+			case pipeline_subobject_type::compute_shader:
+				g_computeShaderManager.addHashHandlePair(calculateShaderHash(subobjects[i].data), pipelineHandle.handle);
+				break;
 		}
 	}
 }
@@ -196,6 +198,7 @@ static void onDestroyPipeline(device *device, pipeline pipelineHandle)
 {
 	g_pixelShaderManager.removeHandle(pipelineHandle.handle);
 	g_vertexShaderManager.removeHandle(pipelineHandle.handle);
+	g_computeShaderManager.removeHandle(pipelineHandle.handle);
 }
 
 
@@ -205,6 +208,25 @@ static void displayIsPartOfToggleGroup()
 	ImGui::SameLine();
 	ImGui::Text(" Shader is part of this toggle group.");
 	ImGui::PopStyleColor();
+}
+
+
+static void displayShaderManagerInfo(ShaderManager& toDisplay, const char* shaderType)
+{
+	if(toDisplay.isInHuntingMode())
+	{
+		ImGui::Text("# of %s shaders active: %d. # of %s shaders in group: %d", shaderType, toDisplay.getAmountShaderHashesCollected(), shaderType, toDisplay.getMarkedShaderCount());
+		ImGui::Text("Current selected %s shader: %d / %d.", shaderType, toDisplay.getActiveHuntedShaderIndex(), toDisplay.getAmountShaderHashesCollected());
+		if(toDisplay.isHuntedShaderMarked())
+		{
+			displayIsPartOfToggleGroup();
+		}
+	}
+}
+
+static void displayShaderManagerStats(ShaderManager& toDisplay, const char* shaderType)
+{
+	ImGui::Text("# of pipelines with %s shaders: %d. # of different %s shaders gathered: %d.", shaderType, toDisplay.getPipelineCount(), shaderType, toDisplay.getShaderCount());
 }
 
 
@@ -230,8 +252,10 @@ static void onReshadeOverlay(reshade::api::effect_runtime *runtime)
 			}
 		}
 		
-		ImGui::Text("# of pipelines with vertex shaders: %d. # of different vertex shaders gathered: %d.", g_vertexShaderManager.getPipelineCount(), g_vertexShaderManager.getShaderCount());
-		ImGui::Text("# of pipelines with pixel shaders: %d. # of different pixel shaders gathered: %d.", g_pixelShaderManager.getPipelineCount(), g_pixelShaderManager.getShaderCount());
+		displayShaderManagerStats(g_vertexShaderManager, "vertex");
+		displayShaderManagerStats(g_pixelShaderManager, "pixel");
+		displayShaderManagerStats(g_computeShaderManager, "compute");
+
 		if(g_activeCollectorFrameCounter > 0)
 		{
 			const uint32_t counterValue = g_activeCollectorFrameCounter;
@@ -239,28 +263,13 @@ static void onReshadeOverlay(reshade::api::effect_runtime *runtime)
 		}
 		else
 		{
-			if(g_vertexShaderManager.isInHuntingMode() || g_pixelShaderManager.isInHuntingMode())
+			if(g_vertexShaderManager.isInHuntingMode() || g_pixelShaderManager.isInHuntingMode() || g_computeShaderManager.isInHuntingMode())
 			{
 				ImGui::Text("Editing the shaders for group: %s", editingGroupName.c_str());
 			}
-			if(g_vertexShaderManager.isInHuntingMode())
-			{
-				ImGui::Text("# of vertex shaders active: %d. # of vertex shaders in group: %d", g_vertexShaderManager.getAmountShaderHashesCollected(), g_vertexShaderManager.getMarkedShaderCount());
-				ImGui::Text("Current selected vertex shader: %d / %d.", g_vertexShaderManager.getActiveHuntedShaderIndex(), g_vertexShaderManager.getAmountShaderHashesCollected());
-				if(g_vertexShaderManager.isHuntedShaderMarked())
-				{
-					displayIsPartOfToggleGroup();
-				}
-			}
-			if(g_pixelShaderManager.isInHuntingMode())
-			{
-				ImGui::Text("# of pixel shaders active: %d. # of pixel shaders in group: %d", g_pixelShaderManager.getAmountShaderHashesCollected(), g_pixelShaderManager.getMarkedShaderCount());
-				ImGui::Text("Current selected pixel shader: %d / %d", g_pixelShaderManager.getActiveHuntedShaderIndex(), g_pixelShaderManager.getAmountShaderHashesCollected());
-				if(g_pixelShaderManager.isHuntedShaderMarked())
-				{
-					displayIsPartOfToggleGroup();
-				}
-			}
+			displayShaderManagerInfo(g_vertexShaderManager, "vertex");
+			displayShaderManagerInfo(g_pixelShaderManager, "pixel");
+			displayShaderManagerInfo(g_computeShaderManager, "compute");
 		}
 		ImGui::End();
 	}
@@ -269,59 +278,75 @@ static void onReshadeOverlay(reshade::api::effect_runtime *runtime)
 
 static void onBindPipeline(command_list* commandList, pipeline_stage stages, pipeline pipelineHandle)
 {
-	if(nullptr!=commandList && pipelineHandle.handle!=0)
+	if(nullptr != commandList && pipelineHandle.handle != 0)
 	{
 		const bool handleHasPixelShaderAttached = g_pixelShaderManager.isKnownHandle(pipelineHandle.handle);
 		const bool handleHasVertexShaderAttached = g_vertexShaderManager.isKnownHandle(pipelineHandle.handle);
-		if(!handleHasPixelShaderAttached && !handleHasVertexShaderAttached)
+		const bool handleHasComputeShaderAttached = g_computeShaderManager.isKnownHandle(pipelineHandle.handle);
+		if(!handleHasPixelShaderAttached && !handleHasVertexShaderAttached && !handleHasComputeShaderAttached)
 		{
 			// draw call with unknown handle, don't collect it
 			return;
 		}
-		CommandListDataContainer &commandListData = commandList->get_private_data<CommandListDataContainer>();
-		switch(stages)
+		CommandListDataContainer& commandListData = commandList->get_private_data<CommandListDataContainer>();
+		// always do the following code as that has to run for every bind on a pipeline:
+		if(g_activeCollectorFrameCounter > 0)
 		{
-			case pipeline_stage::all:
-				if(g_activeCollectorFrameCounter>0)
+			// in collection mode
+			if(handleHasPixelShaderAttached)
+			{
+				g_pixelShaderManager.addActivePipelineHandle(pipelineHandle.handle);
+			}
+			if(handleHasVertexShaderAttached)
+			{
+				g_vertexShaderManager.addActivePipelineHandle(pipelineHandle.handle);
+			}
+			if(handleHasComputeShaderAttached)
+			{
+				g_computeShaderManager.addActivePipelineHandle(pipelineHandle.handle);
+			}
+		}
+		else
+		{
+			commandListData.activePixelShaderPipeline = handleHasPixelShaderAttached ? pipelineHandle.handle : commandListData.activePixelShaderPipeline;
+			commandListData.activeVertexShaderPipeline = handleHasVertexShaderAttached ? pipelineHandle.handle : commandListData.activeVertexShaderPipeline;
+			commandListData.activeComputeShaderPipeline = handleHasComputeShaderAttached ? pipelineHandle.handle : commandListData.activeComputeShaderPipeline;
+		}
+		if((stages & pipeline_stage::pixel_shader) == pipeline_stage::pixel_shader)
+		{
+			if(handleHasPixelShaderAttached)
+			{
+				if(g_activeCollectorFrameCounter > 0)
 				{
 					// in collection mode
-					if(handleHasPixelShaderAttached)
-					{
-						g_pixelShaderManager.addActivePipelineHandle(pipelineHandle.handle);
-					}
-					if(handleHasVertexShaderAttached)
-					{
-						g_vertexShaderManager.addActivePipelineHandle(pipelineHandle.handle);
-					}
+					g_pixelShaderManager.addActivePipelineHandle(pipelineHandle.handle);
 				}
-				else
+				commandListData.activePixelShaderPipeline = pipelineHandle.handle;
+			}
+		}
+		if((stages & pipeline_stage::vertex_shader) == pipeline_stage::vertex_shader)
+		{
+			if(handleHasVertexShaderAttached)
+			{
+				if(g_activeCollectorFrameCounter > 0)
 				{
-					commandListData.activePixelShaderPipeline = handleHasPixelShaderAttached ? pipelineHandle.handle : -1;
-					commandListData.activeVertexShaderPipeline = handleHasVertexShaderAttached ? pipelineHandle.handle : -1;
+					// in collection mode
+					g_vertexShaderManager.addActivePipelineHandle(pipelineHandle.handle);
 				}
-				break;	
-			case pipeline_stage::pixel_shader:
-				if(handleHasPixelShaderAttached)
+				commandListData.activeVertexShaderPipeline = pipelineHandle.handle;
+			}
+		}
+		if((stages & pipeline_stage::compute_shader) == pipeline_stage::compute_shader)
+		{
+			if(handleHasComputeShaderAttached)
+			{
+				if(g_activeCollectorFrameCounter > 0)
 				{
-					if(g_activeCollectorFrameCounter>0)
-					{
-						// in collection mode
-						g_pixelShaderManager.addActivePipelineHandle(pipelineHandle.handle);
-					}
-					commandListData.activePixelShaderPipeline = pipelineHandle.handle;
+					// in collection mode
+					g_computeShaderManager.addActivePipelineHandle(pipelineHandle.handle);
 				}
-				break;
-			case pipeline_stage::vertex_shader:
-				if(handleHasVertexShaderAttached)
-				{
-					if(g_activeCollectorFrameCounter>0)
-					{
-						// in collection mode
-						g_vertexShaderManager.addActivePipelineHandle(pipelineHandle.handle);
-					}
-					commandListData.activeVertexShaderPipeline = pipelineHandle.handle;
-				}
-				break;
+				commandListData.activeComputeShaderPipeline = pipelineHandle.handle;
+			}
 		}
 	}
 }
@@ -352,6 +377,12 @@ bool blockDrawCallForCommandList(command_list* commandList)
 	{
 		blockCall |= group.isBlockedVertexShader(shaderHash);
 	}
+	shaderHash = g_computeShaderManager.getShaderHash(commandListData.activeComputeShaderPipeline);
+	blockCall |= g_computeShaderManager.isBlockedShader(shaderHash);
+	for(auto& group : g_toggleGroups)
+	{
+		blockCall |= group.isBlockedComputeShader(shaderHash);
+	}
 	return blockCall;
 }
 
@@ -376,7 +407,8 @@ static bool onDrawOrDispatchIndirect(command_list* commandList, indirect_command
 	{
 		case indirect_command::unknown:
 		case indirect_command::draw:
-		case indirect_command::draw_indexed: 
+		case indirect_command::draw_indexed:
+		case indirect_command::dispatch:
 			// same as OnDraw
 			return blockDrawCallForCommandList(commandList);
 		// the rest aren't blocked
@@ -402,6 +434,7 @@ static void onReshadePresent(effect_runtime* runtime)
 			{
 				g_vertexShaderManager.toggleHideMarkedShaders();
 				g_pixelShaderManager.toggleHideMarkedShaders();
+				g_computeShaderManager.toggleHideMarkedShaders();
 			}
 		}
 	}
@@ -414,6 +447,9 @@ static void onReshadePresent(effect_runtime* runtime)
 	// Numpad 4: previous vertex shader
 	// Numpad 5: next vertex shader
 	// Numpad 6: mark current vertex shader as part of the toggle group
+	// Numpad 7: previous compute shader
+	// Numpad 8: next compute shader
+	// Numpad 9: mark current compute shader as part of the toggle group
 	if(runtime->is_key_pressed(VK_NUMPAD1))
 	{
 		g_pixelShaderManager.huntPreviousShader(runtime->is_key_down(VK_CONTROL));
@@ -437,6 +473,18 @@ static void onReshadePresent(effect_runtime* runtime)
 	if(runtime->is_key_pressed(VK_NUMPAD6))
 	{
 		g_vertexShaderManager.toggleMarkOnHuntedShader();
+	}
+	if(runtime->is_key_pressed(VK_NUMPAD7))
+	{
+		g_computeShaderManager.huntPreviousShader(runtime->is_key_down(VK_CONTROL));
+	}
+	if(runtime->is_key_pressed(VK_NUMPAD8))
+	{
+		g_computeShaderManager.huntNextShader(runtime->is_key_down(VK_CONTROL));
+	}
+	if(runtime->is_key_pressed(VK_NUMPAD9))
+	{
+		g_computeShaderManager.toggleMarkOnHuntedShader();
 	}
 }
 
@@ -484,9 +532,10 @@ void endShaderEditing(bool acceptCollectedShaderHashes, ToggleGroup& groupEditin
 {
 	if(acceptCollectedShaderHashes && g_toggleGroupIdShaderEditing == groupEditing.getId())
 	{
-		groupEditing.storeCollectedHashes(g_pixelShaderManager.getMarkedShaderHashes(), g_vertexShaderManager.getMarkedShaderHashes());
+		groupEditing.storeCollectedHashes(g_pixelShaderManager.getMarkedShaderHashes(), g_vertexShaderManager.getMarkedShaderHashes(), g_computeShaderManager.getMarkedShaderHashes());
 		g_pixelShaderManager.stopHuntingMode();
 		g_vertexShaderManager.stopHuntingMode();
+		g_computeShaderManager.stopHuntingMode();
 	}
 	g_toggleGroupIdShaderEditing = -1;
 }
@@ -510,6 +559,7 @@ void startShaderEditing(ToggleGroup& groupEditing)
 	g_activeCollectorFrameCounter = g_startValueFramecountCollectionPhase;
 	g_pixelShaderManager.startHuntingMode(groupEditing.getPixelShaderHashes());
 	g_vertexShaderManager.startHuntingMode(groupEditing.getVertexShaderHashes());
+	g_computeShaderManager.startHuntingMode(groupEditing.getComputeShaderHashes());
 
 	// after copying them to the managers, we can now clear the group's shader.
 	groupEditing.clearHashes();
@@ -549,6 +599,9 @@ static void displaySettings(reshade::api::effect_runtime *runtime)
 		ImGui::TextUnformatted("* Numpad 4 and Numpad 5: previous/next vertex shader");
 		ImGui::TextUnformatted("* Ctrl + Numpad 4 and Ctrl + Numpad 5: previous/next marked vertex shader in the group");
 		ImGui::TextUnformatted("* Numpad 6: mark/unmark the current vertex shader as being part of the group");
+		ImGui::TextUnformatted("* Numpad 7 and Numpad 8: previous/next compute shader");
+		ImGui::TextUnformatted("* Ctrl + Numpad 7 and Ctrl + Numpad 8: previous/next marked compute shader in the group");
+		ImGui::TextUnformatted("* Numpad 9: mark/unmark the current compute shader as being part of the group");
 		ImGui::TextUnformatted("\nWhen you step through the shaders, the current shader is disabled in the 3D scene so you can see if that's the shader you were looking for.");
 		ImGui::TextUnformatted("When you're done, make sure you click 'Save all toggle groups' to preserve the groups you defined so next time you start your game they're loaded in and you can use them right away.");
 		ImGui::PopTextWrapPos();
