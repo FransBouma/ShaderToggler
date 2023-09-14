@@ -40,6 +40,7 @@
 #include "CDataFile.h"
 #include "ToggleGroup.h"
 #include <vector>
+#include <filesystem>
 
 using namespace reshade::api;
 using namespace ShaderToggler;
@@ -66,6 +67,9 @@ static atomic_int g_toggleGroupIdKeyBindingEditing = -1;
 static atomic_int g_toggleGroupIdShaderEditing = -1;
 static float g_overlayOpacity = 1.0f;
 static int g_startValueFramecountCollectionPhase = FRAMECOUNT_COLLECTION_PHASE_DEFAULT;
+
+static std::filesystem::path g_dllPath;
+static filesystem::path g_basePath;
 
 
 /// <summary>
@@ -104,7 +108,8 @@ void loadShaderTogglerIniFile()
 	// Will assume it's started at the start of the application and therefore no groups are present.
 
 	CDataFile iniFile;
-	if(!iniFile.Load(HASH_FILE_NAME))
+	const std::string& fileName = HASH_FILE_NAME;
+	if(!iniFile.Load((g_basePath / fileName).string()))
 	{
 		// not there
 		return;
@@ -148,7 +153,8 @@ void saveShaderTogglerIniFile()
 		group.saveState(iniFile, groupCounter);
 		groupCounter++;
 	}
-	iniFile.SetFileName(HASH_FILE_NAME);
+	const std::string& fileName = HASH_FILE_NAME;
+	iniFile.SetFileName((g_basePath / fileName).string());
 	iniFile.Save();
 }
 
@@ -758,6 +764,15 @@ static void displaySettings(reshade::api::effect_runtime *runtime)
 	}
 }
 
+/// <summary>
+/// copied from Reshade
+/// Returns the path to the module file identified by the specified <paramref name="module"/> handle.
+/// </summary>
+std::filesystem::path getModulePath(HMODULE module)
+{
+	WCHAR buf[4096];
+	return GetModuleFileNameW(module, buf, ARRAYSIZE(buf)) ? buf : std::filesystem::path();
+}
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
 {
@@ -768,6 +783,9 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
 		{
 			return FALSE;
 		}
+
+		g_dllPath = getModulePath(hModule);
+		g_basePath = g_dllPath.parent_path();
 		reshade::register_event<reshade::addon_event::init_pipeline>(onInitPipeline);
 		reshade::register_event<reshade::addon_event::init_command_list>(onInitCommandList);
 		reshade::register_event<reshade::addon_event::destroy_command_list>(onDestroyCommandList);
