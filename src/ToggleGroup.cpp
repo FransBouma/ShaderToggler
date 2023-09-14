@@ -153,6 +153,7 @@ namespace ShaderToggler
 		iniFile.SetUInt("AmountHashes", counter, "", computeHashesCategory);
 
 		iniFile.SetValue("Name", _name, "", sectionRoot);
+		iniFile.SetBool("Active", _isActive, "", sectionRoot);
 		iniFile.SetUInt("ToggleKey", _keyData.getKeyForIniFile(), "", sectionRoot);
 	}
 
@@ -233,6 +234,7 @@ namespace ShaderToggler
 		{
 			_name = "Default";
 		}
+		_isActive = iniFile.GetBool("Active", sectionRoot);
 		const uint32_t toggleKeyValue = iniFile.GetUInt("ToggleKey", sectionRoot);
 		if(toggleKeyValue == UINT_MAX)
 		{
