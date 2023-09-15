@@ -36,7 +36,7 @@
 
 namespace ShaderToggler
 {
-	ToggleGroup::ToggleGroup(std::string name, int id): _id(id), _isActive(false), _isEditing(false)
+	ToggleGroup::ToggleGroup(std::string name, int id): _id(id), _isActive(false), _isEditing(false), _isActiveAtStartup(false)
 	{
 		_name = name.size() > 0 ? name : "Default";
 	}
@@ -154,6 +154,7 @@ namespace ShaderToggler
 
 		iniFile.SetValue("Name", _name, "", sectionRoot);
 		iniFile.SetUInt("ToggleKey", _keyData.getKeyForIniFile(), "", sectionRoot);
+		iniFile.SetBool("IsActiveAtStartup", _isActiveAtStartup, "", sectionRoot);
 	}
 
 
@@ -242,6 +243,7 @@ namespace ShaderToggler
 		{
 			_keyData.setKeyFromIniFile(toggleKeyValue);
 		}
+		_isActiveAtStartup = iniFile.GetBool("IsActiveAtStartup", sectionRoot);
+		_isActive = _isActiveAtStartup;
 	}
-
 }

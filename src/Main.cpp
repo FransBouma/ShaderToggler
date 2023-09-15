@@ -673,6 +673,11 @@ static void displaySettings(reshade::api::effect_runtime* runtime)
 			}
 			ImGui::SameLine();
 			ImGui::Text(" %s (%s%s)", group.getName().c_str(), group.getToggleKeyAsString().c_str(), group.isActive() ? ", is active" : "");
+			if(group.isActiveAtStartup())
+			{
+				ImGui::SameLine();
+				ImGui::Text(" (Active at startup)");
+			}
 			if(group.isEditing())
 			{
 				ImGui::Separator();
@@ -685,17 +690,17 @@ static void displaySettings(reshade::api::effect_runtime* runtime)
 				ImGui::PushItemWidth(ImGui::GetWindowWidth() * 0.7f);
 				ImGui::AlignTextToFramePadding();
 				ImGui::Text("Name");
-				ImGui::SameLine(ImGui::GetWindowWidth() * 0.2f);
+				ImGui::SameLine(ImGui::GetWindowWidth() * 0.25f);
 				ImGui::InputText("##Name", tmpBuffer, 149);
 				group.setName(tmpBuffer);
 				ImGui::PopItemWidth();
 
 				// Key binding of group
 				bool isKeyEditing = false;
-				ImGui::PushItemWidth(ImGui::GetWindowWidth() * 0.5f);
+				ImGui::PushItemWidth(ImGui::GetWindowWidth() * 0.7f);
 				ImGui::AlignTextToFramePadding();
 				ImGui::Text("Key shortcut");
-				ImGui::SameLine(ImGui::GetWindowWidth() * 0.2f);
+				ImGui::SameLine(ImGui::GetWindowWidth() * 0.25f);
 				string textBoxContents = (g_toggleGroupIdKeyBindingEditing == group.getId()) ? g_keyCollector.getKeyAsString() : group.getToggleKeyAsString();	// The 'press a key' is inside keycollector
 				string toggleKeyName = group.getToggleKeyAsString();
 				ImGui::InputText("##Key shortcut", (char*)textBoxContents.c_str(), textBoxContents.size(), ImGuiInputTextFlags_ReadOnly);
@@ -717,6 +722,14 @@ static void displaySettings(reshade::api::effect_runtime* runtime)
 						endKeyBindingEditing(false, group);
 					}
 				}
+				ImGui::PopItemWidth();
+
+				ImGui::PushItemWidth(ImGui::GetWindowWidth() * 0.7f);
+				ImGui::Text(" ");
+				ImGui::SameLine(ImGui::GetWindowWidth() * 0.25f);
+				bool isDefaultActive = group.isActiveAtStartup();
+				ImGui::Checkbox("Is active at startup", &isDefaultActive);
+				group.setIsActiveAtStartup(isDefaultActive);
 				ImGui::PopItemWidth();
 
 				if(!isKeyEditing)

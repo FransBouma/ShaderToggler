@@ -68,11 +68,13 @@ namespace ShaderToggler
 		void clearHashes();
 
 		void toggleActive() { _isActive = !_isActive;}
+		void setIsActiveAtStartup(bool newValue) { _isActiveAtStartup = newValue; }
 		void setEditing(bool isEditing) { _isEditing = isEditing;}
 
 		std::string getToggleKeyAsString() { return _keyData.getKeyAsString();}
 		uint8_t getToggleKey() { return _keyData.getKeyCode();}
 		std::string getName() { return _name;}
+		bool isActiveAtStartup() { return _isActiveAtStartup; }
 		bool isActive() { return _isActive;}
 		bool isEditing() { return _isEditing;}
 		bool isEmpty() const { return _vertexShaderHashes.size() <= 0 && _pixelShaderHashes.size() <= 0 && _computeShaderHashes.size() <= 0; }
@@ -94,7 +96,8 @@ namespace ShaderToggler
 		std::unordered_set<uint32_t> _vertexShaderHashes;
 		std::unordered_set<uint32_t> _pixelShaderHashes;
 		std::unordered_set<uint32_t> _computeShaderHashes;
-		bool _isActive;			// true means the group is actively toggled (so the hashes have to be hidden.
-		bool _isEditing;		// true means the group is actively edited (name, key)
+		bool _isActive;				// true means the group is actively toggled (so the hashes have to be hidden).
+		bool _isEditing;			// true means the group is actively edited (name, key)
+		bool _isActiveAtStartup;	// true means the group is active when the host game is started and the toggler has loaded the groups.
 	};
 }
