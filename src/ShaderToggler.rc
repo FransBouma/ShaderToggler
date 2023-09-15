@@ -61,8 +61,8 @@ LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_UK
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,0,0,1
- PRODUCTVERSION 1,0,0,1
+ FILEVERSION 1,2,0,0
+ PRODUCTVERSION 1,2,0,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -79,12 +79,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Frans 'Otis_Inf' Bouma"
             VALUE "FileDescription", "ShaderToggler Addon for ReShade 5+"
-            VALUE "FileVersion", "1.1.0"
+            VALUE "FileVersion", "1.2.0.0"
             VALUE "InternalName", "ShaderTo.dll"
             VALUE "LegalCopyright", "Copyright (C) 2023 Frans Bouma"
             VALUE "OriginalFilename", "ShaderTo.dll"
             VALUE "ProductName", "Shader Toggler addon for ReShade 5+"
-            VALUE "ProductVersion", "1.1.0"
+            VALUE "ProductVersion", "1.2.0.0"
         END
     END
     BLOCK "VarFileInfo"

@@ -67,10 +67,7 @@ static atomic_int g_toggleGroupIdKeyBindingEditing = -1;
 static atomic_int g_toggleGroupIdShaderEditing = -1;
 static float g_overlayOpacity = 1.0f;
 static int g_startValueFramecountCollectionPhase = FRAMECOUNT_COLLECTION_PHASE_DEFAULT;
-
-static std::filesystem::path g_dllPath;
-static filesystem::path g_basePath;
-
+static std::string g_iniFileName = "";
 
 /// <summary>
 /// Calculates a crc32 hash from the passed in shader bytecode. The hash is used to identity the shader in future runs.
@@ -106,10 +103,8 @@ void addDefaultGroup()
 void loadShaderTogglerIniFile()
 {
 	// Will assume it's started at the start of the application and therefore no groups are present.
-
 	CDataFile iniFile;
-	const std::string& fileName = HASH_FILE_NAME;
-	if(!iniFile.Load((g_basePath / fileName).string()))
+	if(!iniFile.Load(g_iniFileName))
 	{
 		// not there
 		return;
@@ -153,8 +148,7 @@ void saveShaderTogglerIniFile()
 		group.saveState(iniFile, groupCounter);
 		groupCounter++;
 	}
-	const std::string& fileName = HASH_FILE_NAME;
-	iniFile.SetFileName((g_basePath / fileName).string());
+	iniFile.SetFileName(g_iniFileName);
 	iniFile.Save();
 }
 
@@ -586,9 +580,9 @@ static void showHelpMarker(const char* desc)
 }
 
 
-static void displaySettings(reshade::api::effect_runtime *runtime)
+static void displaySettings(reshade::api::effect_runtime* runtime)
 {
-	if (g_toggleGroupIdKeyBindingEditing >= 0)
+	if(g_toggleGroupIdKeyBindingEditing >= 0)
 	{
 		// a keybinding is being edited. Read current pressed keys into the collector, cumulatively;
 		g_keyCollector.collectKeysPressed(runtime);
@@ -618,11 +612,11 @@ static void displaySettings(reshade::api::effect_runtime *runtime)
 	{
 		ImGui::AlignTextToFramePadding();
 		ImGui::PushItemWidth(ImGui::GetWindowWidth() * 0.5f);
-			ImGui::SliderFloat("Overlay opacity", &g_overlayOpacity, 0.2f, 1.0f);
-			ImGui::AlignTextToFramePadding();
-			ImGui::SliderInt("# of frames to collect", &g_startValueFramecountCollectionPhase, 10, 1000);
-			ImGui::SameLine();
-			showHelpMarker("This is the number of frames the addon will collect active shaders. Set this to a high number if the shader you want to mark is only used occasionally. Only shaders that are used in the frames collected can be marked.");
+		ImGui::SliderFloat("Overlay opacity", &g_overlayOpacity, 0.2f, 1.0f);
+		ImGui::AlignTextToFramePadding();
+		ImGui::SliderInt("# of frames to collect", &g_startValueFramecountCollectionPhase, 10, 1000);
+		ImGui::SameLine();
+		showHelpMarker("This is the number of frames the addon will collect active shaders. Set this to a high number if the shader you want to mark is only used occasionally. Only shaders that are used in the frames collected can be marked.");
 		ImGui::PopItemWidth();
 	}
 	ImGui::Separator();
@@ -653,9 +647,9 @@ static void displaySettings(reshade::api::effect_runtime *runtime)
 			}
 
 			ImGui::SameLine();
-			if(g_toggleGroupIdShaderEditing>=0)
+			if(g_toggleGroupIdShaderEditing >= 0)
 			{
-				if(g_toggleGroupIdShaderEditing==group.getId())
+				if(g_toggleGroupIdShaderEditing == group.getId())
 				{
 					if(ImGui::Button(" Done "))
 					{
@@ -678,7 +672,7 @@ static void displaySettings(reshade::api::effect_runtime *runtime)
 				}
 			}
 			ImGui::SameLine();
-			ImGui::Text(" %s (%s%s)", group.getName().c_str() , group.getToggleKeyAsString().c_str(), group.isActive() ? ", is active" : "");
+			ImGui::Text(" %s (%s%s)", group.getName().c_str(), group.getToggleKeyAsString().c_str(), group.isActive() ? ", is active" : "");
 			if(group.isEditing())
 			{
 				ImGui::Separator();
@@ -689,40 +683,40 @@ static void displaySettings(reshade::api::effect_runtime *runtime)
 				const string& name = group.getName();
 				strncpy_s(tmpBuffer, 150, name.c_str(), name.size());
 				ImGui::PushItemWidth(ImGui::GetWindowWidth() * 0.7f);
-					ImGui::AlignTextToFramePadding();
-					ImGui::Text("Name");
-					ImGui::SameLine(ImGui::GetWindowWidth() * 0.2f);
-					ImGui::InputText("##Name", tmpBuffer, 149);
-					group.setName(tmpBuffer);
+				ImGui::AlignTextToFramePadding();
+				ImGui::Text("Name");
+				ImGui::SameLine(ImGui::GetWindowWidth() * 0.2f);
+				ImGui::InputText("##Name", tmpBuffer, 149);
+				group.setName(tmpBuffer);
 				ImGui::PopItemWidth();
 
 				// Key binding of group
 				bool isKeyEditing = false;
 				ImGui::PushItemWidth(ImGui::GetWindowWidth() * 0.5f);
-					ImGui::AlignTextToFramePadding();
-					ImGui::Text("Key shortcut");
-					ImGui::SameLine(ImGui::GetWindowWidth() * 0.2f);
-					string textBoxContents = (g_toggleGroupIdKeyBindingEditing == group.getId()) ? g_keyCollector.getKeyAsString() : group.getToggleKeyAsString();	// The 'press a key' is inside keycollector
-					string toggleKeyName = group.getToggleKeyAsString();
-					ImGui::InputText("##Key shortcut", (char*)textBoxContents.c_str(), textBoxContents.size(), ImGuiInputTextFlags_ReadOnly);
-					if(ImGui::IsItemClicked())
+				ImGui::AlignTextToFramePadding();
+				ImGui::Text("Key shortcut");
+				ImGui::SameLine(ImGui::GetWindowWidth() * 0.2f);
+				string textBoxContents = (g_toggleGroupIdKeyBindingEditing == group.getId()) ? g_keyCollector.getKeyAsString() : group.getToggleKeyAsString();	// The 'press a key' is inside keycollector
+				string toggleKeyName = group.getToggleKeyAsString();
+				ImGui::InputText("##Key shortcut", (char*)textBoxContents.c_str(), textBoxContents.size(), ImGuiInputTextFlags_ReadOnly);
+				if(ImGui::IsItemClicked())
+				{
+					startKeyBindingEditing(group);
+				}
+				if(g_toggleGroupIdKeyBindingEditing == group.getId())
+				{
+					isKeyEditing = true;
+					ImGui::SameLine();
+					if(ImGui::Button("OK"))
 					{
-						startKeyBindingEditing(group);
+						endKeyBindingEditing(true, group);
 					}
-					if(g_toggleGroupIdKeyBindingEditing==group.getId())
+					ImGui::SameLine();
+					if(ImGui::Button("Cancel"))
 					{
-						isKeyEditing = true;
-						ImGui::SameLine();
-						if (ImGui::Button("OK"))
-						{
-							endKeyBindingEditing(true, group);
-						}
-						ImGui::SameLine();
-						if (ImGui::Button("Cancel"))
-						{
-							endKeyBindingEditing(false, group);
-						}
+						endKeyBindingEditing(false, group);
 					}
+				}
 				ImGui::PopItemWidth();
 
 				if(!isKeyEditing)
@@ -736,10 +730,10 @@ static void displaySettings(reshade::api::effect_runtime *runtime)
 				}
 				ImGui::Separator();
 			}
-					
+
 			ImGui::PopID();
 		}
-		if(toRemove.size()>0)
+		if(toRemove.size() > 0)
 		{
 			// switch off keybinding editing or shader editing, if in progress
 			g_toggleGroupIdKeyBindingEditing = -1;
@@ -754,7 +748,7 @@ static void displaySettings(reshade::api::effect_runtime *runtime)
 		}
 
 		ImGui::Separator();
-		if(g_toggleGroups.size()>0)
+		if(g_toggleGroups.size() > 0)
 		{
 			if(ImGui::Button("Save all Toggle Groups"))
 			{
@@ -764,41 +758,39 @@ static void displaySettings(reshade::api::effect_runtime *runtime)
 	}
 }
 
-/// <summary>
-/// copied from Reshade
-/// Returns the path to the module file identified by the specified <paramref name="module"/> handle.
-/// </summary>
-std::filesystem::path getModulePath(HMODULE module)
-{
-	WCHAR buf[4096];
-	return GetModuleFileNameW(module, buf, ARRAYSIZE(buf)) ? buf : std::filesystem::path();
-}
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
 {
 	switch (fdwReason)
 	{
 	case DLL_PROCESS_ATTACH:
-		if (!reshade::register_addon(hModule))
 		{
-			return FALSE;
-		}
+			if(!reshade::register_addon(hModule))
+			{
+				return FALSE;
+			}
 
-		g_dllPath = getModulePath(hModule);
-		g_basePath = g_dllPath.parent_path();
-		reshade::register_event<reshade::addon_event::init_pipeline>(onInitPipeline);
-		reshade::register_event<reshade::addon_event::init_command_list>(onInitCommandList);
-		reshade::register_event<reshade::addon_event::destroy_command_list>(onDestroyCommandList);
-		reshade::register_event<reshade::addon_event::reset_command_list>(onResetCommandList);
-		reshade::register_event<reshade::addon_event::destroy_pipeline>(onDestroyPipeline);
-		reshade::register_event<reshade::addon_event::reshade_overlay>(onReshadeOverlay);
-		reshade::register_event<reshade::addon_event::reshade_present>(onReshadePresent);
-		reshade::register_event<reshade::addon_event::bind_pipeline>(onBindPipeline);
-		reshade::register_event<reshade::addon_event::draw>(onDraw);
-		reshade::register_event<reshade::addon_event::draw_indexed>(onDrawIndexed);
-		reshade::register_event<reshade::addon_event::draw_or_dispatch_indirect>(onDrawOrDispatchIndirect);
-		reshade::register_overlay(nullptr, &displaySettings);
-		loadShaderTogglerIniFile();
+			// From ReShade
+			WCHAR buf[4096];
+			const std::filesystem::path dllPath = GetModuleFileNameW(hModule, buf, ARRAYSIZE(buf)) ? buf : std::filesystem::path();		// <installpath>/shadertoggler.addon64
+			const std::filesystem::path basePath = dllPath.parent_path();																// <installpath>
+			const std::string& hashFileName = HASH_FILE_NAME;
+			g_iniFileName = (basePath / hashFileName).string();																			// <installpath>/shadertoggler.ini
+
+			reshade::register_event<reshade::addon_event::init_pipeline>(onInitPipeline);
+			reshade::register_event<reshade::addon_event::init_command_list>(onInitCommandList);
+			reshade::register_event<reshade::addon_event::destroy_command_list>(onDestroyCommandList);
+			reshade::register_event<reshade::addon_event::reset_command_list>(onResetCommandList);
+			reshade::register_event<reshade::addon_event::destroy_pipeline>(onDestroyPipeline);
+			reshade::register_event<reshade::addon_event::reshade_overlay>(onReshadeOverlay);
+			reshade::register_event<reshade::addon_event::reshade_present>(onReshadePresent);
+			reshade::register_event<reshade::addon_event::bind_pipeline>(onBindPipeline);
+			reshade::register_event<reshade::addon_event::draw>(onDraw);
+			reshade::register_event<reshade::addon_event::draw_indexed>(onDrawIndexed);
+			reshade::register_event<reshade::addon_event::draw_or_dispatch_indirect>(onDrawOrDispatchIndirect);
+			reshade::register_overlay(nullptr, &displaySettings);
+			loadShaderTogglerIniFile();
+		}
 		break;
 	case DLL_PROCESS_DETACH:
 		reshade::unregister_event<reshade::addon_event::reshade_present>(onReshadePresent);
