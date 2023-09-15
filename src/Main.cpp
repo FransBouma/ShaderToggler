@@ -697,7 +697,7 @@ static void displaySettings(reshade::api::effect_runtime* runtime)
 
 				// Key binding of group
 				bool isKeyEditing = false;
-				ImGui::PushItemWidth(ImGui::GetWindowWidth() * 0.7f);
+				ImGui::PushItemWidth(ImGui::GetWindowWidth() * 0.5f);
 				ImGui::AlignTextToFramePadding();
 				ImGui::Text("Key shortcut");
 				ImGui::SameLine(ImGui::GetWindowWidth() * 0.25f);
