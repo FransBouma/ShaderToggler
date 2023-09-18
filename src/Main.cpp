@@ -783,13 +783,13 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID)
 				return FALSE;
 			}
 
-			// From ReShade
-			WCHAR buf[4096];
-			const std::filesystem::path dllPath = GetModuleFileNameW(hModule, buf, ARRAYSIZE(buf)) ? buf : std::filesystem::path();		// <installpath>/shadertoggler.addon64
+			// We'll pass a nullptr for the module handle so we get the containing process' executable + path. We can't use the reshade's api as we don't have the runtime
+			// and we can't use reshade's handle because under vulkan reshade is stored in a central space and therefore it won't get the folder of the exe (where the reshade dll is located as well).
+			WCHAR buf[MAX_PATH];
+			const std::filesystem::path dllPath = GetModuleFileNameW(nullptr, buf, ARRAYSIZE(buf)) ? buf : std::filesystem::path();		// <installpath>/shadertoggler.addon64
 			const std::filesystem::path basePath = dllPath.parent_path();																// <installpath>
 			const std::string& hashFileName = HASH_FILE_NAME;
 			g_iniFileName = (basePath / hashFileName).string();																			// <installpath>/shadertoggler.ini
-
 			reshade::register_event<reshade::addon_event::init_pipeline>(onInitPipeline);
 			reshade::register_event<reshade::addon_event::init_command_list>(onInitCommandList);
 			reshade::register_event<reshade::addon_event::destroy_command_list>(onDestroyCommandList);
