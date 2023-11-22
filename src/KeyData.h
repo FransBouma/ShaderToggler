@@ -43,7 +43,7 @@ namespace ShaderToggler
 	class KeyData
 	{
 	public:
-		KeyData();
+		KeyData(uint8_t keyCode = 0, bool ctrl = 0, bool shift = 0, bool alt = 0);
 
 		/// <summary>
 		/// Ini file variant which has ctrl/shift/alt requirements baked in.
