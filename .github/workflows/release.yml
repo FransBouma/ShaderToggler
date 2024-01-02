@@ -1,0 +1,72 @@
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag'
+        required: true
+        type: string
+      commit:
+        description: 'Commit reference. It can be branch name or a commit hash. This will be used to create the tag if it does not exist.'
+        default: 'main'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: ncipollo/release-action@v1.13.0
+      with:
+        tag: ${{ inputs.tag }}
+        commit: ${{ inputs.commit }}
+        generateReleaseNotes: 'true'
+        draft: 'true'
+
+  build:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - platform: x86
+          configuration: Release
+          target: 'src/Release/ShaderToggler.addon'
+        - platform: x64
+          configuration: Release
+          target: 'src/x64/Release/ShaderToggler.addon64'
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v1.3.1
+
+    - name: Build
+      working-directory: ${{ env.GITHUB_WORKSPACE }}
+      run: msbuild /m /property:Platform=${{ matrix.platform }} /p:Configuration=${{ matrix.configuration }} src/ShaderToggler.sln
+
+    - name: Package
+      shell: bash
+      env:
+        ARCHIVE: ShaderToggler_v${{ inputs.tag }}_${{ matrix.platform }}
+      run: |
+        mkdir "$ARCHIVE"
+        cp {README.md,LICENSE,${{ matrix.target }}} -u "$ARCHIVE"
+        7z a "$ARCHIVE.zip" ./"$ARCHIVE"/*
+        certutil -hashfile "$ARCHIVE.zip" SHA256 > "$ARCHIVE.zip.sha256"
+        echo "ASSET=$ARCHIVE.zip" >> $GITHUB_ENV
+        echo "ASSET_SUM=$ARCHIVE.zip.sha256" >> $GITHUB_ENV
+      
+    - name: Upload
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      shell: bash
+      run: gh release upload "${{ inputs.tag }}" ${{ env.ASSET }} ${{ env.ASSET_SUM }}
+    
