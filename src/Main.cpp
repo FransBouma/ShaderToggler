@@ -169,7 +169,7 @@ void loadShaderTogglerIniFile()
 		uint32_t keybinding = iniFile.GetUInt(AddonKeybindNames[i], "KeyBindings");
 		if(keybinding != UINT_MAX)
 		{
-			g_addonKeyBindings[i] = keybinding;
+			g_addonKeyBindings[i].setKeyFromIniFile(keybinding);
 		}
 	}
 	int groupCounter = 0;
