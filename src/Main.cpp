@@ -519,19 +519,19 @@ static void onReshadePresent(effect_runtime* runtime)
 	// Numpad 9: mark current compute shader as part of the toggle group
 	if(g_addonKeyBindings[AddonKeybind::PIXEL_SHADER_DOWN].isKeyPressed(runtime))
 	{
-		g_pixelShaderManager.huntPreviousShader(runtime->is_key_down(false));
+		g_pixelShaderManager.huntPreviousShader(false);
 	}
 	if(g_addonKeyBindings[AddonKeybind::PIXEL_SHADER_UP].isKeyPressed(runtime))
 	{
-		g_pixelShaderManager.huntNextShader(runtime->is_key_down(false));
+		g_pixelShaderManager.huntNextShader(false);
 	}
 	if(g_addonKeyBindings[AddonKeybind::PIXEL_SHADER_MARKED_DOWN].isKeyPressed(runtime))
 	{
-		g_pixelShaderManager.huntPreviousShader(runtime->is_key_down(true));
+		g_pixelShaderManager.huntPreviousShader(true);
 	}
 	if(g_addonKeyBindings[AddonKeybind::PIXEL_SHADER_MARKED_UP].isKeyPressed(runtime))
 	{
-		g_pixelShaderManager.huntNextShader(runtime->is_key_down(true));
+		g_pixelShaderManager.huntNextShader(true);
 	}
 	if(g_addonKeyBindings[AddonKeybind::PIXEL_SHADER_MARK].isKeyPressed(runtime))
 	{
@@ -540,19 +540,19 @@ static void onReshadePresent(effect_runtime* runtime)
 
 	if(g_addonKeyBindings[AddonKeybind::VERTEX_SHADER_DOWN].isKeyPressed(runtime))
 	{
-		g_vertexShaderManager.huntPreviousShader(runtime->is_key_down(false));
+		g_vertexShaderManager.huntPreviousShader(false);
 	}
 	if(g_addonKeyBindings[AddonKeybind::VERTEX_SHADER_UP].isKeyPressed(runtime))
 	{
-		g_vertexShaderManager.huntNextShader(runtime->is_key_down(false));
+		g_vertexShaderManager.huntNextShader(false);
 	}
 	if(g_addonKeyBindings[AddonKeybind::VERTEX_SHADER_MARKED_DOWN].isKeyPressed(runtime))
 	{
-		g_vertexShaderManager.huntPreviousShader(runtime->is_key_down(true));
+		g_vertexShaderManager.huntPreviousShader(false);
 	}
 	if(g_addonKeyBindings[AddonKeybind::VERTEX_SHADER_MARKED_UP].isKeyPressed(runtime))
 	{
-		g_vertexShaderManager.huntNextShader(runtime->is_key_down(true));
+		g_vertexShaderManager.huntNextShader(true);
 	}
 	if(g_addonKeyBindings[AddonKeybind::VERTEX_SHADER_MARK].isKeyPressed(runtime))
 	{
@@ -561,19 +561,19 @@ static void onReshadePresent(effect_runtime* runtime)
 
 	if(g_addonKeyBindings[AddonKeybind::COMPUTE_SHADER_DOWN].isKeyPressed(runtime))
 	{
-		g_computeShaderManager.huntPreviousShader(runtime->is_key_down(false));
+		g_computeShaderManager.huntPreviousShader(false);
 	}
 	if(g_addonKeyBindings[AddonKeybind::COMPUTE_SHADER_UP].isKeyPressed(runtime))
 	{
-		g_computeShaderManager.huntNextShader(runtime->is_key_down(false));
+		g_computeShaderManager.huntNextShader(false);
 	}
 	if(g_addonKeyBindings[AddonKeybind::COMPUTE_SHADER_MARKED_DOWN].isKeyPressed(runtime))
 	{
-		g_computeShaderManager.huntPreviousShader(runtime->is_key_down(true));
+		g_computeShaderManager.huntPreviousShader(true);
 	}
 	if(g_addonKeyBindings[AddonKeybind::COMPUTE_SHADER_MARKED_UP].isKeyPressed(runtime))
 	{
-		g_computeShaderManager.huntNextShader(runtime->is_key_down(true));
+		g_computeShaderManager.huntNextShader(true);
 	}
 	if(g_addonKeyBindings[AddonKeybind::COMPUTE_SHADER_MARK].isKeyPressed(runtime))
 	{
