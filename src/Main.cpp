@@ -57,6 +57,61 @@ struct __declspec(uuid("038B03AA-4C75-443B-A695-752D80797037")) CommandListDataC
 #define FRAMECOUNT_COLLECTION_PHASE_DEFAULT 250;
 #define HASH_FILE_NAME	"ShaderToggler.ini"
 
+enum AddonKeybind: uint32_t
+{
+	PIXEL_SHADER_DOWN = 0,
+	PIXEL_SHADER_UP,
+	PIXEL_SHADER_MARK,
+	PIXEL_SHADER_MARKED_DOWN,
+	PIXEL_SHADER_MARKED_UP,
+	VERTEX_SHADER_DOWN,
+	VERTEX_SHADER_UP,
+	VERTEX_SHADER_MARK,
+	VERTEX_SHADER_MARKED_DOWN,
+	VERTEX_SHADER_MARKED_UP,
+	COMPUTE_SHADER_DOWN,
+	COMPUTE_SHADER_UP,
+	COMPUTE_SHADER_MARK,
+	COMPUTE_SHADER_MARKED_DOWN,
+	COMPUTE_SHADER_MARKED_UP
+};
+
+static const char* AddonKeybindNames[] = {
+	"PIXEL_SHADER_DOWN",
+	"PIXEL_SHADER_UP",
+	"PIXEL_SHADER_MARK",
+	"PIXEL_SHADER_MARKED_DOWN",
+	"PIXEL_SHADER_MARKED_UP",
+	"VERTEX_SHADER_DOWN",
+	"VERTEX_SHADER_UP",
+	"VERTEX_SHADER_MARK",
+	"VERTEX_SHADER_MARKED_DOWN",
+	"VERTEX_SHADER_MARKED_UP",
+	"COMPUTE_SHADER_DOWN",
+	"COMPUTE_SHADER_UP",
+	"COMPUTE_SHADER_MARK",
+	"COMPUTE_SHADER_MARKED_DOWN",
+	"COMPUTE_SHADER_MARKED_UP"
+};
+// Format: {keyCode = 0, ctrl = false, shift = false, alt = false}, see the KeyData constructor.
+static KeyData g_addonKeyBindings[ARRAYSIZE(AddonKeybindNames)] = {
+	{VK_NUMPAD1},
+	{VK_NUMPAD2},
+	{VK_NUMPAD3},
+	{VK_NUMPAD1, true},
+	{VK_NUMPAD2, true},
+	VK_NUMPAD4,
+	VK_NUMPAD5,
+	VK_NUMPAD6,
+	{VK_NUMPAD4, true},
+	{VK_NUMPAD5, true},
+	VK_NUMPAD7,
+	VK_NUMPAD8,
+	VK_NUMPAD9,
+	{VK_NUMPAD7, true},
+	{VK_NUMPAD8, true},
+};
+
 static ShaderToggler::ShaderManager g_pixelShaderManager;
 static ShaderToggler::ShaderManager g_vertexShaderManager;
 static ShaderToggler::ShaderManager g_computeShaderManager;
@@ -109,6 +164,14 @@ void loadShaderTogglerIniFile()
 		// not there
 		return;
 	}
+	for(uint32_t i = 0; i < ARRAYSIZE(AddonKeybindNames); i++)
+	{
+		uint32_t keybinding = iniFile.GetUInt(AddonKeybindNames[i], "KeyBindings");
+		if(keybinding != UINT_MAX)
+		{
+			g_addonKeyBindings[i].setKeyFromIniFile(keybinding);
+		}
+	}
 	int groupCounter = 0;
 	const int numberOfGroups = iniFile.GetInt("AmountGroups", "General");
 	if(numberOfGroups==INT_MIN)
@@ -140,6 +203,10 @@ void saveShaderTogglerIniFile()
 	// format: first section with # of groups, then per group a section with pixel and vertex shaders, as well as their name and key value.
 	// groups are stored with "Group" + group counter, starting with 0.
 	CDataFile iniFile;
+	for(uint32_t i = 0; i < ARRAYSIZE(AddonKeybindNames); i++)
+	{
+		uint32_t keybinding = iniFile.SetUInt(AddonKeybindNames[i], g_addonKeyBindings[i].getKeyForIniFile(), "", "KeyBindings");
+	}
 	iniFile.SetInt("AmountGroups", g_toggleGroups.size(), "",  "General");
 
 	int groupCounter = 0;
@@ -450,39 +517,65 @@ static void onReshadePresent(effect_runtime* runtime)
 	// Numpad 7: previous compute shader
 	// Numpad 8: next compute shader
 	// Numpad 9: mark current compute shader as part of the toggle group
-	if(runtime->is_key_pressed(VK_NUMPAD1))
+	if(g_addonKeyBindings[AddonKeybind::PIXEL_SHADER_DOWN].isKeyPressed(runtime))
 	{
-		g_pixelShaderManager.huntPreviousShader(runtime->is_key_down(VK_CONTROL));
+		g_pixelShaderManager.huntPreviousShader(false);
 	}
-	if(runtime->is_key_pressed(VK_NUMPAD2))
+	if(g_addonKeyBindings[AddonKeybind::PIXEL_SHADER_UP].isKeyPressed(runtime))
 	{
-		g_pixelShaderManager.huntNextShader(runtime->is_key_down(VK_CONTROL));
+		g_pixelShaderManager.huntNextShader(false);
 	}
-	if(runtime->is_key_pressed(VK_NUMPAD3))
+	if(g_addonKeyBindings[AddonKeybind::PIXEL_SHADER_MARKED_DOWN].isKeyPressed(runtime))
+	{
+		g_pixelShaderManager.huntPreviousShader(true);
+	}
+	if(g_addonKeyBindings[AddonKeybind::PIXEL_SHADER_MARKED_UP].isKeyPressed(runtime))
+	{
+		g_pixelShaderManager.huntNextShader(true);
+	}
+	if(g_addonKeyBindings[AddonKeybind::PIXEL_SHADER_MARK].isKeyPressed(runtime))
 	{
 		g_pixelShaderManager.toggleMarkOnHuntedShader();
 	}
-	if(runtime->is_key_pressed(VK_NUMPAD4))
+
+	if(g_addonKeyBindings[AddonKeybind::VERTEX_SHADER_DOWN].isKeyPressed(runtime))
 	{
-		g_vertexShaderManager.huntPreviousShader(runtime->is_key_down(VK_CONTROL));
+		g_vertexShaderManager.huntPreviousShader(false);
 	}
-	if(runtime->is_key_pressed(VK_NUMPAD5))
+	if(g_addonKeyBindings[AddonKeybind::VERTEX_SHADER_UP].isKeyPressed(runtime))
 	{
-		g_vertexShaderManager.huntNextShader(runtime->is_key_down(VK_CONTROL));
+		g_vertexShaderManager.huntNextShader(false);
 	}
-	if(runtime->is_key_pressed(VK_NUMPAD6))
+	if(g_addonKeyBindings[AddonKeybind::VERTEX_SHADER_MARKED_DOWN].isKeyPressed(runtime))
+	{
+		g_vertexShaderManager.huntPreviousShader(false);
+	}
+	if(g_addonKeyBindings[AddonKeybind::VERTEX_SHADER_MARKED_UP].isKeyPressed(runtime))
+	{
+		g_vertexShaderManager.huntNextShader(true);
+	}
+	if(g_addonKeyBindings[AddonKeybind::VERTEX_SHADER_MARK].isKeyPressed(runtime))
 	{
 		g_vertexShaderManager.toggleMarkOnHuntedShader();
 	}
-	if(runtime->is_key_pressed(VK_NUMPAD7))
+
+	if(g_addonKeyBindings[AddonKeybind::COMPUTE_SHADER_DOWN].isKeyPressed(runtime))
 	{
-		g_computeShaderManager.huntPreviousShader(runtime->is_key_down(VK_CONTROL));
+		g_computeShaderManager.huntPreviousShader(false);
 	}
-	if(runtime->is_key_pressed(VK_NUMPAD8))
+	if(g_addonKeyBindings[AddonKeybind::COMPUTE_SHADER_UP].isKeyPressed(runtime))
 	{
-		g_computeShaderManager.huntNextShader(runtime->is_key_down(VK_CONTROL));
+		g_computeShaderManager.huntNextShader(false);
 	}
-	if(runtime->is_key_pressed(VK_NUMPAD9))
+	if(g_addonKeyBindings[AddonKeybind::COMPUTE_SHADER_MARKED_DOWN].isKeyPressed(runtime))
+	{
+		g_computeShaderManager.huntPreviousShader(true);
+	}
+	if(g_addonKeyBindings[AddonKeybind::COMPUTE_SHADER_MARKED_UP].isKeyPressed(runtime))
+	{
+		g_computeShaderManager.huntNextShader(true);
+	}
+	if(g_addonKeyBindings[AddonKeybind::COMPUTE_SHADER_MARK].isKeyPressed(runtime))
 	{
 		g_computeShaderManager.toggleMarkOnHuntedShader();
 	}
@@ -620,6 +713,36 @@ static void displaySettings(reshade::api::effect_runtime* runtime)
 		ImGui::PopItemWidth();
 	}
 	ImGui::Separator();
+
+	if(ImGui::CollapsingHeader("Keybindings", ImGuiTreeNodeFlags_None))
+	{
+		for(uint32_t i = 0; i < IM_ARRAYSIZE(AddonKeybindNames); i++)
+		{
+			KeyData keys = g_addonKeyBindings[static_cast<AddonKeybind>(i)];
+			
+			char buf[48]{'\0'};
+			if(keys.isValid())
+				buf[keys.getKeyAsString().copy(buf, sizeof(buf) - 1)] = '\0';
+
+			ImGui::PushItemWidth(ImGui::GetWindowWidth() * 0.35f);
+			ImGui::InputTextWithHint(AddonKeybindNames[i], "Click to set keyboard shortcuts", buf, sizeof(buf), ImGuiInputTextFlags_NoUndoRedo | ImGuiInputTextFlags_ReadOnly);
+			if(ImGui::IsItemActive())
+			{
+				g_keyCollector.collectKeysPressed(runtime);
+				if(g_keyCollector.getKeyForIniFile() == KeyData(VK_BACK).getKeyForIniFile())
+				{
+					g_addonKeyBindings[i].clear();
+				}
+				else
+				{
+					if(g_keyCollector.isValid())// The case of only modifier keys pressed has been handled in collectKeysPressed
+						g_addonKeyBindings[i] = std::move(g_keyCollector);
+				}
+				g_keyCollector.clear();
+			}
+			ImGui::PopItemWidth();
+		}
+	}
 
 	if(ImGui::CollapsingHeader("List of Toggle Groups", ImGuiTreeNodeFlags_DefaultOpen))
 	{
